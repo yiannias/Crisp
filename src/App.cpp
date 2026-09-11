@@ -151,7 +151,16 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
                                     ClipboardHasImage());
                 const int command = m_tray.ShowMenu(window);
                 if (command != 0) {
-                    OnCommand(command);
+                    // TrackPopupMenuEx dönmüş olsa da Explorer menünün son
+                    // karesini henüz silmemiş olabilir. Yakalamayı burada
+                    // başlatmak, o kareyi dondurulmuş masaüstüne kopyalar;
+                    // sonuç, seçme kaplamasının üzerinde solmuş bir "Select
+                    // a region" menü satırı olarak görünür. Önce WM_NULL ile
+                    // kabuğun menü kapanışını tamamlamasına fırsat ver, sonra
+                    // komutu normal ileti kuyruğunda işle.
+                    ::PostMessageW(window, WM_NULL, 0, 0);
+                    ::PostMessageW(window, WM_COMMAND,
+                                   MAKEWPARAM(static_cast<WORD>(command), 0), 0);
                 }
             } else if (event == WM_LBUTTONUP) {
                 OnCommand(IDM_CAPTURE_REGION);
