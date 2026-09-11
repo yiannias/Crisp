@@ -88,7 +88,9 @@ void PickTool(HWND window, State& state, ToolKind tool) {
             ::InvalidateRect(window, nullptr, FALSE);
             return true;
         }
-        ::DestroyWindow(window);
+        // Esc is reserved for cancelling an in-progress action.  When there
+        // is nothing to cancel, keep the editor open so an accidental key
+        // press cannot discard the whole markup.
         return true;
     }
     if (control && key == 'Z') {
