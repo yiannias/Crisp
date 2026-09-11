@@ -334,10 +334,10 @@ void BuildControls(HWND window, State& state) {
     middle.Group(Loc::Str(IDS_SET_GROUP_EDITOR).c_str());
     (void)middle.Radio(kIdEditorEscapeClose,
                        Loc::Str(IDS_SET_EDITOR_ESCAPE_CLOSE).c_str(), true);
-    (void)middle.Radio(kIdEditorEscapeCancelDeselect,
-                       Loc::Str(IDS_SET_EDITOR_ESCAPE_CANCEL_DESELECT).c_str());
     (void)middle.Radio(kIdEditorEscapeCancel,
                        Loc::Str(IDS_SET_EDITOR_ESCAPE_CANCEL).c_str());
+    (void)middle.Radio(kIdEditorEscapeCancelDeselect,
+                       Loc::Str(IDS_SET_EDITOR_ESCAPE_CANCEL_DESELECT).c_str());
 
     middle.Group(Loc::Str(IDS_SET_GROUP_ANNOTATE).c_str());
     (void)middle.Labelled(kIdBlurStrength,

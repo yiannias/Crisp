@@ -227,7 +227,7 @@ BEGIN
     IDS_SET_GROUP_EDITOR    "Editor"
     IDS_SET_EDITOR_ESCAPE   "Escape"
     IDS_SET_EDITOR_ESCAPE_CLOSE "Close editor"
-    IDS_SET_EDITOR_ESCAPE_CANCEL_DESELECT "Cancel command and deselect"
+    IDS_SET_EDITOR_ESCAPE_CANCEL_DESELECT "Cancel & De-Select"
     IDS_SET_EDITOR_ESCAPE_CANCEL "Cancel command"
     IDS_SHELL_VERB          "Edit with Crisp"
     IDS_SHELL_FAILED        "The right-click menu entry could not be changed. Windows refused to write to the registry."
