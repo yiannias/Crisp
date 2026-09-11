@@ -55,6 +55,19 @@ public:
         return control;
     }
 
+    HWND Radio(int id, const wchar_t* text, bool first = false) {
+        const int height = Scale(id == kIdEditorEscapeCancelDeselect ? 42 : 24,
+                                 m_state.dpi);
+        const DWORD style = WS_CHILD | WS_VISIBLE | WS_TABSTOP |
+                            BS_AUTORADIOBUTTON | BS_MULTILINE |
+                            (first ? WS_GROUP : 0);
+        const HWND control = ::CreateWindowExW(
+            0, L"BUTTON", text, style, m_left, m_y, m_width, height, m_parent,
+            reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)), nullptr, nullptr);
+        m_y += height + Scale(2, m_state.dpi);
+        return control;
+    }
+
     // Kısayol satırı: solda EYLEM açılır kutusu, sağda tuş kutusu.
     //
     // ETİKET YOK ÇÜNKÜ EYLEM ETİKETTİR: "Bölge seç — Ctrl+Shift+S" satırında
@@ -319,15 +332,12 @@ void BuildControls(HWND window, State& state) {
     (void)middle.Check(kIdShutter, Loc::Str(IDS_SET_SHUTTER).c_str());
 
     middle.Group(Loc::Str(IDS_SET_GROUP_EDITOR).c_str());
-    const HWND escapeAction = middle.Labelled(
-        kIdEditorEscapeAction, Loc::Str(IDS_SET_EDITOR_ESCAPE).c_str(),
-        L"COMBOBOX", CBS_DROPDOWNLIST);
-    for (const UINT id : {IDS_SET_EDITOR_ESCAPE_CLOSE,
-                          IDS_SET_EDITOR_ESCAPE_CANCEL_DESELECT,
-                          IDS_SET_EDITOR_ESCAPE_CANCEL}) {
-        ::SendMessageW(escapeAction, CB_ADDSTRING, 0,
-                       reinterpret_cast<LPARAM>(Loc::Str(id).c_str()));
-    }
+    (void)middle.Radio(kIdEditorEscapeClose,
+                       Loc::Str(IDS_SET_EDITOR_ESCAPE_CLOSE).c_str(), true);
+    (void)middle.Radio(kIdEditorEscapeCancelDeselect,
+                       Loc::Str(IDS_SET_EDITOR_ESCAPE_CANCEL_DESELECT).c_str());
+    (void)middle.Radio(kIdEditorEscapeCancel,
+                       Loc::Str(IDS_SET_EDITOR_ESCAPE_CANCEL).c_str());
 
     middle.Group(Loc::Str(IDS_SET_GROUP_ANNOTATE).c_str());
     (void)middle.Labelled(kIdBlurStrength,
