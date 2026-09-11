@@ -147,7 +147,7 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
             // NOTIFYICON_VERSION_4 ile olay kodu lParam'ın alt sözcüğündedir.
             const UINT event = LOWORD(lParam);
             if (event == WM_RBUTTONUP || event == WM_CONTEXTMENU) {
-                m_tray.SetMenuState(m_settings.HasLastRegion(),
+                m_tray.SetMenuState(m_settings, m_settings.HasLastRegion(),
                                     ClipboardHasImage());
                 const int command = m_tray.ShowMenu(window);
                 if (command != 0) {

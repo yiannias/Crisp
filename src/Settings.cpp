@@ -159,6 +159,7 @@ void Settings::Load(const SettingsStore& store) {
     store.ReadBool(L"PlayShutterSound", playShutterSound);
     store.ReadBool(L"PrintScreenCapture", printScreenCapture);
     store.ReadBool(L"ShowNotification", showNotification);
+    store.ReadBool(L"EscapeClosesEditor", escapeClosesEditor);
     store.ReadUnsigned(L"HistoryLimit", historyLimit);
     store.ReadBool(L"IncludeCursor", includeCursor);
     // KAYIT DEFTERİNDEKİ FİİLDEN okunur, kendi anahtarımızdan değil; gerekçe
@@ -248,6 +249,7 @@ bool Settings::Save(const SettingsStore& store) const {
     ok = store.WriteBool(L"PlayShutterSound", playShutterSound) && ok;
     ok = store.WriteBool(L"PrintScreenCapture", printScreenCapture) && ok;
     ok = store.WriteBool(L"ShowNotification", showNotification) && ok;
+    ok = store.WriteBool(L"EscapeClosesEditor", escapeClosesEditor) && ok;
     ok = store.WriteUnsigned(L"HistoryLimit", historyLimit) && ok;
     ok = store.WriteBool(L"IncludeCursor", includeCursor) && ok;
     ok = store.WriteUnsigned(L"DimStrength", dimStrength) && ok;

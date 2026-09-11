@@ -337,6 +337,7 @@ void LoadIntoControls(HWND window, const State& state) {
     SetCheck(window, kIdAfterOcr, s.after.copyTextViaOcr);
     SetCheck(window, kIdAfterUpload, s.after.uploadImage);
     SetCheck(window, kIdNotify, s.showNotification);
+    SetCheck(window, kIdEscapeClosesEditor, s.escapeClosesEditor);
 
     for (int slot = 0; slot < kHotkeySlots; ++slot) {
         ::SendDlgItemMessageW(
@@ -404,6 +405,7 @@ void ReadFromControls(HWND window, State& state) {
     s.after.copyTextViaOcr = GetCheck(window, kIdAfterOcr);
     s.after.uploadImage = GetCheck(window, kIdAfterUpload);
     s.showNotification = GetCheck(window, kIdNotify);
+    s.escapeClosesEditor = GetCheck(window, kIdEscapeClosesEditor);
 
     for (int slot = 0; slot < kHotkeySlots; ++slot) {
         const LRESULT index = ::SendDlgItemMessageW(

@@ -59,6 +59,7 @@ constexpr UINT kDelayMs = 550;
         case kActionUpload:      return IDS_ED_UPLOAD;
         case kActionSave:        return IDS_TIP_SAVE;
         case kActionSaveAs:      return IDS_TIP_SAVE_AS;
+        case kActionSettings:    return IDS_MENU_SETTINGS;
         default:                 return IDS_TIP_CLOSE;
     }
 }

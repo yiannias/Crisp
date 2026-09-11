@@ -26,7 +26,8 @@ constexpr ToolKind kTools[] = {
 
 constexpr int kImageActions[] = {kActionRotateLeft, kActionRotateRight,
                                  kActionScale, kActionEffects, kActionOcr};
-constexpr int kEditActions[] = {kActionUndo, kActionRedo, kActionClear};
+constexpr int kEditActions[] = {kActionUndo, kActionRedo, kActionClear,
+                                kActionSettings};
 constexpr int kFileActions[] = {kActionCopy, kActionUpload, kActionSave,
                                 kActionSaveAs, kActionClose};
 

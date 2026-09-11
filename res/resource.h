@@ -262,6 +262,7 @@
 
 // Explorer sağ tık menüsü
 #define IDS_SET_SHELL_MENU      1197
+#define IDS_SET_ESCAPE_CLOSES_EDITOR 1246
 #define IDS_SHELL_VERB          1198
 #define IDS_SHELL_FAILED        1199
 

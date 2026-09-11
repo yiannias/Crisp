@@ -81,6 +81,7 @@ enum ActionId {
     kActionUpload,
     kActionSave,
     kActionSaveAs,
+    kActionSettings,
     kActionClose,
 };
 
