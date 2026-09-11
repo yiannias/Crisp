@@ -28,7 +28,7 @@ struct EditorResult {
 
 // Düzenleyiciyi açar. `image` YERİNDE değiştirilir: dönüşte üzerine çizilmiş
 // hâli taşır, böylece çağıran sonucu kaydedebilir.
-[[nodiscard]] EditorResult RunEditor(HINSTANCE instance, const Settings& settings,
+[[nodiscard]] EditorResult RunEditor(HINSTANCE instance, Settings& settings,
                                      Image& image);
 
 }  // namespace crisp

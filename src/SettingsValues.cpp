@@ -337,6 +337,19 @@ void LoadIntoControls(HWND window, const State& state) {
     SetCheck(window, kIdAfterOcr, s.after.copyTextViaOcr);
     SetCheck(window, kIdAfterUpload, s.after.uploadImage);
     SetCheck(window, kIdNotify, s.showNotification);
+    int escapeAction = 0;
+    switch (s.editorEscapeAction) {
+        case EditorEscapeAction::CloseEditor:
+            break;
+        case EditorEscapeAction::CancelCommand:
+            escapeAction = 1;
+            break;
+        case EditorEscapeAction::CancelCommandAndDeselect:
+            escapeAction = 2;
+            break;
+    }
+    ::SendDlgItemMessageW(window, kIdEditorEscapeAction, CB_SETCURSEL,
+                          static_cast<WPARAM>(escapeAction), 0);
 
     for (int slot = 0; slot < kHotkeySlots; ++slot) {
         ::SendDlgItemMessageW(
@@ -404,6 +417,17 @@ void ReadFromControls(HWND window, State& state) {
     s.after.copyTextViaOcr = GetCheck(window, kIdAfterOcr);
     s.after.uploadImage = GetCheck(window, kIdAfterUpload);
     s.showNotification = GetCheck(window, kIdNotify);
+    switch (::SendDlgItemMessageW(window, kIdEditorEscapeAction, CB_GETCURSEL, 0, 0)) {
+        case 1:
+            s.editorEscapeAction = EditorEscapeAction::CancelCommand;
+            break;
+        case 2:
+            s.editorEscapeAction = EditorEscapeAction::CancelCommandAndDeselect;
+            break;
+        default:
+            s.editorEscapeAction = EditorEscapeAction::CloseEditor;
+            break;
+    }
 
     for (int slot = 0; slot < kHotkeySlots; ++slot) {
         const LRESULT index = ::SendDlgItemMessageW(

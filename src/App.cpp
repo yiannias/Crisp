@@ -32,6 +32,7 @@ namespace {
 // mesajı yoktur. Yoklama aralığı: iki saniyede bir tek bir RegGetValue,
 // ölçülemeyecek kadar ucuz.
 constexpr UINT kThemePollMs = 2000;
+constexpr UINT kTrayMenuSettleMs = 250;
 
 }  // namespace
 
@@ -147,11 +148,19 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
             // NOTIFYICON_VERSION_4 ile olay kodu lParam'ın alt sözcüğündedir.
             const UINT event = LOWORD(lParam);
             if (event == WM_RBUTTONUP || event == WM_CONTEXTMENU) {
-                m_tray.SetMenuState(m_settings.HasLastRegion(),
+                m_tray.SetMenuState(m_settings, m_settings.HasLastRegion(),
                                     ClipboardHasImage());
                 const int command = m_tray.ShowMenu(window);
                 if (command != 0) {
-                    OnCommand(command);
+                    // Explorer, TrackPopupMenuEx döndükten sonra da kapanış
+                    // animasyonunun son karesini gösterebilir. Bu kareyi
+                    // dondurmak "Select a region — Print Screen" satırını
+                    // yakalamaya taşır. Kısa zamanlayıcı, ana ileti yordamı
+                    // döndükten sonra kabuğa bunu kaldırma zamanı verir.
+                    m_pendingTrayCommand = command;
+                    ::PostMessageW(window, WM_NULL, 0, 0);
+                    (void)::SetTimer(window, TIMER_TRAY_SETTLE,
+                                     kTrayMenuSettleMs, nullptr);
                 }
             } else if (event == WM_LBUTTONUP) {
                 OnCommand(IDM_CAPTURE_REGION);
@@ -207,6 +216,15 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
                 ::Sleep(120);
                 PerformCapture(action);
                 m_busy = false;
+                return 0;
+            }
+            if (wParam == TIMER_TRAY_SETTLE) {
+                ::KillTimer(window, TIMER_TRAY_SETTLE);
+                const int command = m_pendingTrayCommand;
+                m_pendingTrayCommand = 0;
+                if (command != 0) {
+                    OnCommand(command);
+                }
                 return 0;
             }
             break;

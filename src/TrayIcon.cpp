@@ -1,6 +1,8 @@
 // TrayIcon.cpp — bkz. TrayIcon.h.
 #include "TrayIcon.h"
 
+#include "HotkeyEdit.h"
+
 #include "Localization.h"
 #include "Messages.h"
 #include "UploadLog.h"
@@ -193,8 +195,28 @@ int TrayIcon::ShowMenu(HWND owner) {
 
     // Metinler her açılışta yeniden okunur: dil ayarı değiştiğinde menünün
     // eski dilde kalmaması için önbelleğe alınmazlar.
-    auto add = [menu](UINT command, UINT textId, UINT acceleratorId) {
-        const std::wstring text = Loc::MenuText(textId, acceleratorId);
+    auto add = [this, menu](UINT command, UINT textId, UINT acceleratorId) {
+        std::wstring text = m_settings != nullptr
+                                ? Loc::Str(textId)
+                                : Loc::MenuText(textId, acceleratorId);
+        if (m_settings != nullptr) {
+            const HotkeyAction action =
+                command == IDM_CAPTURE_REGION ? HotkeyAction::Region :
+                command == IDM_CAPTURE_WINDOW ? HotkeyAction::Window :
+                command == IDM_CAPTURE_ACTIVE ? HotkeyAction::ActiveWindow :
+                command == IDM_CAPTURE_FULLSCREEN ? HotkeyAction::Monitor :
+                command == IDM_CAPTURE_ALL ? HotkeyAction::AllMonitors :
+                command == IDM_CAPTURE_LAST ? HotkeyAction::LastRegion :
+                command == IDM_CAPTURE_DELAYED ? HotkeyAction::Delayed :
+                command == IDM_CAPTURE_SCROLL ? HotkeyAction::Scrolling :
+                HotkeyAction::None;
+            for (const HotkeyBinding& binding : m_settings->hotkeys) {
+                if (binding.action == action && binding.key.assigned()) {
+                    text += L"\t" + HotkeyText(binding.key);
+                    break;
+                }
+            }
+        }
         ::AppendMenuW(menu, MF_STRING, command, text.c_str());
     };
     auto separator = [menu]() { ::AppendMenuW(menu, MF_SEPARATOR, 0, nullptr); };

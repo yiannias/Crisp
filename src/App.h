@@ -172,6 +172,10 @@ private:
     HotkeyAction m_pendingAction = HotkeyAction::None;
     unsigned m_countdown = 0;
 
+    // Tepsi menüsünden seçilen komut. Menü kapanış animasyonu bittiğinde
+    // TIMER_TRAY_SETTLE bunu OnCommand'e teslim eder.
+    int m_pendingTrayCommand = 0;
+
     // Dosya adı şablonundaki %i sayacı. Oturum boyunca artar; diske
     // yazılmaz, çünkü "bugünün kaçıncı yakalaması" sorusunun cevabı
     // oturumlar arası taşınacak kadar önemli değil.

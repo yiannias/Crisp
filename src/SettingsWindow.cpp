@@ -318,6 +318,17 @@ void BuildControls(HWND window, State& state) {
     (void)middle.Check(kIdPrintScreen, Loc::Str(IDS_SET_PRINTSCREEN).c_str());
     (void)middle.Check(kIdShutter, Loc::Str(IDS_SET_SHUTTER).c_str());
 
+    middle.Group(Loc::Str(IDS_SET_GROUP_EDITOR).c_str());
+    const HWND editorEscape = middle.Labelled(
+        kIdEditorEscapeAction, Loc::Str(IDS_SET_EDITOR_ESCAPE).c_str(), L"COMBOBOX",
+        CBS_DROPDOWNLIST | WS_VSCROLL);
+    for (const UINT id : {IDS_SET_EDITOR_ESCAPE_CLOSE, IDS_SET_EDITOR_ESCAPE_CANCEL,
+                          IDS_SET_EDITOR_ESCAPE_CANCEL_DESELECT}) {
+        const std::wstring text = Loc::Str(id);
+        ::SendMessageW(editorEscape, CB_ADDSTRING, 0,
+                       reinterpret_cast<LPARAM>(text.c_str()));
+    }
+
     middle.Group(Loc::Str(IDS_SET_GROUP_ANNOTATE).c_str());
     (void)middle.Labelled(kIdBlurStrength,
                           Loc::Str(IDS_SET_BLUR_STRENGTH).c_str(), L"EDIT",

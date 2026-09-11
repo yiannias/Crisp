@@ -271,6 +271,7 @@ void DrawActionGlyph(HDC dc, const RECT& box, int action, COLORREF color,
         case kActionUpload:      glyph = L""; break;
         case kActionSave:        glyph = L""; break;
         case kActionSaveAs:      glyph = L""; break;
+        case kActionSettings:    glyph = L""; break;
         case kActionClose:       glyph = L""; break;
         default: break;
     }

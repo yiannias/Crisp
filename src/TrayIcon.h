@@ -1,6 +1,8 @@
 // TrayIcon.h — Bildirim alanı simgesi ve bağlam menüsü.
 #pragma once
 
+#include "Settings.h"
+
 #include <windows.h>
 
 namespace crisp {
@@ -30,7 +32,9 @@ public:
     // Menü açılmadan ÖNCE bildirilir: hangi komutların etkin olduğu duruma
     // bağlı ve tepsi simgesi uygulamanın durumunu bilmez. Menüyü açan taraf
     // söyler, menü de onu yalnızca soluklaştırmak için kullanır.
-    void SetMenuState(bool hasLastRegion, bool hasClipboardImage) noexcept {
+    void SetMenuState(const Settings& settings, bool hasLastRegion,
+                      bool hasClipboardImage) noexcept {
+        m_settings = &settings;
         m_hasLastRegion = hasLastRegion;
         m_hasClipboardImage = hasClipboardImage;
     }
@@ -49,6 +53,7 @@ private:
     bool m_themeKnown = false;
     bool m_hasLastRegion = false;
     bool m_hasClipboardImage = false;
+    const Settings* m_settings = nullptr;
 };
 
 }  // namespace crisp

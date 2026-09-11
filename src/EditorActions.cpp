@@ -10,6 +10,7 @@
 #include "Geometry.h"
 #include "ImageTransform.h"
 #include "ThicknessPicker.h"
+#include "SettingsWindow.h"
 
 #include <algorithm>
 #include <memory>
@@ -271,6 +272,12 @@ void ApplyAction(HWND window, State& state, int action) {
             return;
         case kActionSaveAs:
             SaveAsDialog(window, state);
+            return;
+        case kActionSettings:
+            if (ShowSettingsWindow(state.instance, state.settings)) {
+                state.settings.Save(SettingsStore::ForApp());
+                Refresh(window, state);
+            }
             return;
         case kActionClose:
             ::DestroyWindow(window);
