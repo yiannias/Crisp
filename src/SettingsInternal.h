@@ -53,7 +53,7 @@ enum ControlId {
     kIdAfterReveal,
     kIdAfterOcr,
     kIdNotify,
-    kIdEscapeClosesEditor,
+    kIdEditorEscapeAction,
     kIdFolder,
     kIdBrowse,
     kIdFormat,

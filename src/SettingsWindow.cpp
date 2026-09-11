@@ -317,8 +317,17 @@ void BuildControls(HWND window, State& state) {
     (void)middle.Check(kIdIncludeCursor, Loc::Str(IDS_SET_CURSOR).c_str());
     (void)middle.Check(kIdPrintScreen, Loc::Str(IDS_SET_PRINTSCREEN).c_str());
     (void)middle.Check(kIdShutter, Loc::Str(IDS_SET_SHUTTER).c_str());
-    (void)middle.Check(kIdEscapeClosesEditor,
-                       Loc::Str(IDS_SET_ESCAPE_CLOSES_EDITOR).c_str());
+
+    middle.Group(Loc::Str(IDS_SET_GROUP_EDITOR).c_str());
+    const HWND escapeAction = middle.Labelled(
+        kIdEditorEscapeAction, Loc::Str(IDS_SET_EDITOR_ESCAPE).c_str(),
+        L"COMBOBOX", CBS_DROPDOWNLIST);
+    for (const UINT id : {IDS_SET_EDITOR_ESCAPE_CLOSE,
+                          IDS_SET_EDITOR_ESCAPE_CANCEL_DESELECT,
+                          IDS_SET_EDITOR_ESCAPE_CANCEL}) {
+        ::SendMessageW(escapeAction, CB_ADDSTRING, 0,
+                       reinterpret_cast<LPARAM>(Loc::Str(id).c_str()));
+    }
 
     middle.Group(Loc::Str(IDS_SET_GROUP_ANNOTATE).c_str());
     (void)middle.Labelled(kIdBlurStrength,

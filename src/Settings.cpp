@@ -103,6 +103,10 @@ void Settings::Clamp() {
     dimStrength = ClampUnsigned(dimStrength, 0u, 80u);
     blurStrength = ClampUnsigned(blurStrength, 10u, 400u);
     mosaicStrength = ClampUnsigned(mosaicStrength, 10u, 400u);
+    if (static_cast<unsigned>(editorEscapeAction) >
+        static_cast<unsigned>(EditorEscapeAction::CancelCommand)) {
+        editorEscapeAction = EditorEscapeAction::CloseEditor;
+    }
 
     // BOŞ ŞABLON DOSYAYI ADSIZ BIRAKIRDI. Kullanıcı alanı temizlediyse
     // varsayılana dönmek, "Crisp .png" gibi bir dosyaya yazmaktan iyidir.
@@ -159,7 +163,18 @@ void Settings::Load(const SettingsStore& store) {
     store.ReadBool(L"PlayShutterSound", playShutterSound);
     store.ReadBool(L"PrintScreenCapture", printScreenCapture);
     store.ReadBool(L"ShowNotification", showNotification);
-    store.ReadBool(L"EscapeClosesEditor", escapeClosesEditor);
+    unsigned escapeAction = static_cast<unsigned>(editorEscapeAction);
+    if (store.ReadUnsigned(L"EditorEscapeAction", escapeAction) &&
+        escapeAction <= static_cast<unsigned>(EditorEscapeAction::CancelCommand)) {
+        editorEscapeAction = static_cast<EditorEscapeAction>(escapeAction);
+    } else {
+        bool legacyEscapeCloses = true;
+        if (store.ReadBool(L"EscapeClosesEditor", legacyEscapeCloses)) {
+            editorEscapeAction = legacyEscapeCloses
+                                     ? EditorEscapeAction::CloseEditor
+                                     : EditorEscapeAction::CancelCommandAndDeselect;
+        }
+    }
     store.ReadUnsigned(L"HistoryLimit", historyLimit);
     store.ReadBool(L"IncludeCursor", includeCursor);
     // KAYIT DEFTERİNDEKİ FİİLDEN okunur, kendi anahtarımızdan değil; gerekçe
@@ -249,7 +264,8 @@ bool Settings::Save(const SettingsStore& store) const {
     ok = store.WriteBool(L"PlayShutterSound", playShutterSound) && ok;
     ok = store.WriteBool(L"PrintScreenCapture", printScreenCapture) && ok;
     ok = store.WriteBool(L"ShowNotification", showNotification) && ok;
-    ok = store.WriteBool(L"EscapeClosesEditor", escapeClosesEditor) && ok;
+    ok = store.WriteUnsigned(L"EditorEscapeAction",
+                             static_cast<unsigned>(editorEscapeAction)) && ok;
     ok = store.WriteUnsigned(L"HistoryLimit", historyLimit) && ok;
     ok = store.WriteBool(L"IncludeCursor", includeCursor) && ok;
     ok = store.WriteUnsigned(L"DimStrength", dimStrength) && ok;

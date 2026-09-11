@@ -88,15 +88,25 @@ void PickTool(HWND window, State& state, ToolKind tool) {
             ::InvalidateRect(window, nullptr, FALSE);
             return true;
         }
-        if (state.selected >= 0 || state.dragging || state.movingShape) {
-            state.selected = -1;
+        if (state.dragging || state.movingShape) {
             state.dragging = false;
             state.movingShape = false;
+            state.draft = Shape{};
             ::InvalidateRect(window, nullptr, FALSE);
             return true;
         }
-        if (state.settings.escapeClosesEditor) {
-            ::DestroyWindow(window);
+        switch (state.settings.editorEscapeAction) {
+            case EditorEscapeAction::CloseEditor:
+                ::DestroyWindow(window);
+                return true;
+            case EditorEscapeAction::CancelCommandAndDeselect:
+                if (state.selected >= 0) {
+                    state.selected = -1;
+                    ::InvalidateRect(window, nullptr, FALSE);
+                }
+                return true;
+            case EditorEscapeAction::CancelCommand:
+                return true;
         }
         return true;
     }

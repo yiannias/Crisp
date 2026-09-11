@@ -152,6 +152,12 @@ struct HotkeyBinding {
 // ve altı yuva, istenen her eylemi karşılamaya fazlasıyla yetiyor.
 inline constexpr int kHotkeySlots = 6;
 
+enum class EditorEscapeAction : unsigned {
+    CloseEditor = 0,
+    CancelCommandAndDeselect,
+    CancelCommand,
+};
+
 struct Settings {
     std::wstring saveFolder;          // boşsa Resimler\Crisp kullanılır
     // Görüntünün gönderileceği servisin kimliği; bkz. `UploadServiceId`.
@@ -187,7 +193,7 @@ struct Settings {
     bool printScreenCapture = true;
     // Yakalamadan sonra köşede kısa bir bildirim gösterilsin mi?
     bool showNotification = true;
-    bool escapeClosesEditor = true;
+    EditorEscapeAction editorEscapeAction = EditorEscapeAction::CloseEditor;
     // Geçmişte saklanacak yakalama sayısı; 0 = geçmiş kapalı.
     unsigned historyLimit = 24;
 
