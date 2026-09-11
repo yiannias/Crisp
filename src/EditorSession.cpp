@@ -45,7 +45,7 @@ constexpr const wchar_t* kWindowClass = L"CrispEditorWindow";
 }  // namespace
 }  // namespace editor
 
-EditorResult RunEditor(HINSTANCE instance, const Settings& settings, Image& image) {
+EditorResult RunEditor(HINSTANCE instance, Settings& settings, Image& image) {
     using namespace editor;
 
     EditorResult result{};
@@ -124,6 +124,7 @@ EditorResult RunEditor(HINSTANCE instance, const Settings& settings, Image& imag
         ::DispatchMessageW(&message);
     }
 
+    settings = state.settings;
     return state.result;
 }
 
