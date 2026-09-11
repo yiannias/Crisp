@@ -248,8 +248,6 @@ void BuildControls(HWND window, State& state) {
     // KABUK MENÜSÜ "Genel"DE: bir yakalama ayarı değil, Windows'la kurulan bir
     // bağ — kaydetme ya da yakalama gruplarının hiçbirine ait değil.
     (void)left.Check(kIdShellMenu, Loc::Str(IDS_SET_SHELL_MENU).c_str());
-    (void)left.Check(kIdEscapeClosesEditor,
-                     Loc::Str(IDS_SET_ESCAPE_CLOSES_EDITOR).c_str());
 
     left.Group(Loc::Str(IDS_SET_GROUP_SAVE).c_str());
     (void)left.Labelled(kIdFolder, Loc::Str(IDS_SET_FOLDER).c_str(), L"EDIT",
@@ -319,6 +317,8 @@ void BuildControls(HWND window, State& state) {
     (void)middle.Check(kIdIncludeCursor, Loc::Str(IDS_SET_CURSOR).c_str());
     (void)middle.Check(kIdPrintScreen, Loc::Str(IDS_SET_PRINTSCREEN).c_str());
     (void)middle.Check(kIdShutter, Loc::Str(IDS_SET_SHUTTER).c_str());
+    (void)middle.Check(kIdEscapeClosesEditor,
+                       Loc::Str(IDS_SET_ESCAPE_CLOSES_EDITOR).c_str());
 
     middle.Group(Loc::Str(IDS_SET_GROUP_ANNOTATE).c_str());
     (void)middle.Labelled(kIdBlurStrength,

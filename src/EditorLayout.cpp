@@ -26,10 +26,9 @@ constexpr ToolKind kTools[] = {
 
 constexpr int kImageActions[] = {kActionRotateLeft, kActionRotateRight,
                                  kActionScale, kActionEffects, kActionOcr};
-constexpr int kEditActions[] = {kActionUndo, kActionRedo, kActionClear,
-                                kActionSettings};
+constexpr int kEditActions[] = {kActionUndo, kActionRedo, kActionClear};
 constexpr int kFileActions[] = {kActionCopy, kActionUpload, kActionSave,
-                                kActionSaveAs, kActionClose};
+                                kActionSaveAs, kActionSettings, kActionClose};
 
 [[nodiscard]] int GroupWidth(int group, unsigned dpi) noexcept {
     const int side = Scale(kButtonSide, dpi);
