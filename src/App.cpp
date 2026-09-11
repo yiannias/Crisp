@@ -32,6 +32,7 @@ namespace {
 // mesajı yoktur. Yoklama aralığı: iki saniyede bir tek bir RegGetValue,
 // ölçülemeyecek kadar ucuz.
 constexpr UINT kThemePollMs = 2000;
+constexpr UINT kTrayMenuSettleMs = 250;
 
 }  // namespace
 
@@ -151,16 +152,15 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
                                     ClipboardHasImage());
                 const int command = m_tray.ShowMenu(window);
                 if (command != 0) {
-                    // TrackPopupMenuEx dönmüş olsa da Explorer menünün son
-                    // karesini henüz silmemiş olabilir. Yakalamayı burada
-                    // başlatmak, o kareyi dondurulmuş masaüstüne kopyalar;
-                    // sonuç, seçme kaplamasının üzerinde solmuş bir "Select
-                    // a region" menü satırı olarak görünür. Önce WM_NULL ile
-                    // kabuğun menü kapanışını tamamlamasına fırsat ver, sonra
-                    // komutu normal ileti kuyruğunda işle.
+                    // Explorer, TrackPopupMenuEx döndükten sonra da kapanış
+                    // animasyonunun son karesini gösterebilir. Bu kareyi
+                    // dondurmak "Select a region — Print Screen" satırını
+                    // yakalamaya taşır. Kısa zamanlayıcı, ana ileti yordamı
+                    // döndükten sonra kabuğa bunu kaldırma zamanı verir.
+                    m_pendingTrayCommand = command;
                     ::PostMessageW(window, WM_NULL, 0, 0);
-                    ::PostMessageW(window, WM_COMMAND,
-                                   MAKEWPARAM(static_cast<WORD>(command), 0), 0);
+                    (void)::SetTimer(window, TIMER_TRAY_SETTLE,
+                                     kTrayMenuSettleMs, nullptr);
                 }
             } else if (event == WM_LBUTTONUP) {
                 OnCommand(IDM_CAPTURE_REGION);
@@ -216,6 +216,15 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
                 ::Sleep(120);
                 PerformCapture(action);
                 m_busy = false;
+                return 0;
+            }
+            if (wParam == TIMER_TRAY_SETTLE) {
+                ::KillTimer(window, TIMER_TRAY_SETTLE);
+                const int command = m_pendingTrayCommand;
+                m_pendingTrayCommand = 0;
+                if (command != 0) {
+                    OnCommand(command);
+                }
                 return 0;
             }
             break;

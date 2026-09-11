@@ -32,6 +32,9 @@ inline constexpr UINT_PTR TIMER_THEME = 2;
 // Geri sayım göstergesinin saniye vuruşu.
 inline constexpr UINT_PTR TIMER_COUNTDOWN = 3;
 
+// Tepsi menüsü kapandıktan sonra yakalamayı başlatan kısa, tek atımlı bekleme.
+inline constexpr UINT_PTR TIMER_TRAY_SETTLE = 4;
+
 // Global kısayol kimlikleri. RegisterHotKey aynı iş parçacığında benzersiz
 // olmalarını şart koşar.
 //
