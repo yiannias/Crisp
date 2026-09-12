@@ -1,19 +1,22 @@
-// EditorText.cpp — Metin aracının yazma kipi: kutu, imleç, ipucu ve tuşlar.
+// EditorText.cpp — Metin aracının yazma kipi: kutu, imleç, seçim ve tuşlar.
 //
 // NEDEN AYRI BİR DOSYA VE NEDEN BU KADAR İŞ: metin aracına basıp tuvale
 // tıklandığında EKRANDA HİÇBİR ŞEY OLMUYORDU. Ne bir imleç, ne bir çerçeve,
 // ne bir ipucu — kip açılıyordu ama görünmüyordu. Kullanıcının makul çıkarımı
 // "bu düğme bozuk" oluyordu; nitekim tam olarak bu bildirildi.
 //
-// Yazılan metnin önizlemesini çizmek tek başına yetmez: ilk harf yazılana
-// kadar önizlenecek bir şey yoktur ve boşluk tam da o an doğar.
+// İMLEÇ ARTIK GEZİYOR: önceki sürüm yalnızca sona ekliyordu. Bir harfi
+// yanlış yazan kullanıcı ondan sonraki her şeyi silmek zorundaydı; ok tuşu
+// basınca hiçbir şey olmuyordu. Tampon mantığı çekirdekteki TextEdit'te ve
+// testlidir; burası yalnızca tuşları ona, tamponu da ekrana çevirir.
 #include "EditorInternal.h"
 
+#include "ClipboardImage.h"
 #include "EditorRender.h"
+#include "EditorTextLayout.h"
 #include "Geometry.h"
-#include "Localization.h"
 #include "Theme.h"
-#include "resource.h"
+#include "Util.h"
 
 #include <imm.h>
 
@@ -32,33 +35,77 @@ namespace {
     return (blink == 0 || blink == INFINITE) ? 0 : blink;
 }
 
-[[nodiscard]] std::wstring LastLine(const std::wstring& text) {
-    const size_t breakAt = text.find_last_of(L'\n');
-    return breakAt == std::wstring::npos ? text : text.substr(breakAt + 1);
-}
-
-[[nodiscard]] int LineCount(const std::wstring& text) noexcept {
-    int lines = 1;
-    for (const wchar_t ch : text) {
-        if (ch == L'\n') {
-            ++lines;
-        }
-    }
-    return lines;
-}
-
-// IME aday penceresini imlecin yanına taşır. Yapılmazsa Japonca/Korece/Çince
-// yazan kullanıcı, aday listesini pencerenin sol üst köşesinde bulur.
-void MoveImeCaret(HWND window, POINT caret) {
+// IME aday penceresini İMLECİN yanına taşır ve yazı tipini taslağınkiyle
+// eşler. Yapılmazsa Japonca/Korece/Çince yazan kullanıcı aday listesini
+// pencerenin sol üst köşesinde, bileşim metnini de başka bir boyda bulur.
+void SyncIme(HWND window, const State& state) {
     const HIMC context = ::ImmGetContext(window);
     if (context == nullptr) {
         return;
     }
     COMPOSITIONFORM form{};
     form.dwStyle = CFS_POINT;
-    form.ptCurrentPos = caret;
+    form.ptCurrentPos = TextCaretClient(window, state);
     (void)::ImmSetCompositionWindow(context, &form);
+
+    const HFONT font = CreateTextFont(state.textDraft.thickness, state.dpi,
+                                      state.scale, false);
+    if (font != nullptr) {
+        LOGFONTW logFont{};
+        if (::GetObjectW(font, sizeof(logFont), &logFont) != 0) {
+            (void)::ImmSetCompositionFontW(context, &logFont);
+        }
+        ::DeleteObject(font);
+    }
     (void)::ImmReleaseContext(window, context);
+}
+
+// Yarım kalmış IME bileşimini iptal eder. Yazma bittikten sonra bileşim
+// kapanırken ürettiği WM_CHAR'lar başka bir yere düşerdi.
+void CancelImeComposition(HWND window) {
+    const HIMC context = ::ImmGetContext(window);
+    if (context == nullptr) {
+        return;
+    }
+    (void)::ImmNotifyIME(context, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+    (void)::ImmReleaseContext(window, context);
+}
+
+// Her tampon değişikliğinden sonra: metni taslağa yansıt, imleci göster,
+// IME'yi imlece taşı, yeniden çiz.
+//
+// İMLEÇ HER TUŞTA YENİDEN GÖRÜNÜR OLMALI: yanıp sönme evresi kapalıyken
+// yazmak ya da ok tuşuna basmak, harfin nereye gittiğini göstermezdi.
+void AfterEdit(HWND window, State& state) {
+    state.textDraft.text = state.textEdit.text;
+    state.caretOn = true;
+    const UINT period = CaretPeriod();
+    if (period != 0) {
+        ::SetTimer(window, kCaretTimer, period, nullptr);
+    }
+    SyncIme(window, state);
+    ::InvalidateRect(window, nullptr, FALSE);
+}
+
+void CopySelection(HWND window, const State& state) {
+    if (!state.textEdit.HasSelection()) {
+        return;
+    }
+    const std::wstring selected = state.textEdit.SelectedText();
+    if (!CopyTextToClipboard(selected.c_str(), window)) {
+        LogV(L"Metin seçimi panoya kopyalanamadı");
+    }
+}
+
+void PasteFromClipboard(HWND window, State& state) {
+    std::wstring raw;
+    if (!ReadTextFromClipboard(raw, window)) {
+        return;
+    }
+    const std::wstring clean = TextEdit::Sanitize(raw);
+    if (!clean.empty()) {
+        state.textEdit.Insert(clean);
+    }
 }
 
 }  // namespace
@@ -66,7 +113,6 @@ void MoveImeCaret(HWND window, POINT caret) {
 void DrawTextDraft(HDC dc, const State& state) {
     const Shape& draft = state.textDraft;
     const Palette& colors = theme::Colors();
-    const POINT origin = ToClient(state, draft.start);
 
     const HFONT font =
         CreateTextFont(draft.thickness, state.dpi, state.scale, false);
@@ -76,25 +122,7 @@ void DrawTextDraft(HDC dc, const State& state) {
     const HGDIOBJ oldFont = ::SelectObject(dc, font);
     ::SetBkMode(dc, TRANSPARENT);
 
-    TEXTMETRICW metrics{};
-    ::GetTextMetricsW(dc, &metrics);
-    const int lineHeight = metrics.tmHeight;
-
-    // BOŞKEN İPUCU: kutunun içinde soluk bir "Yazmaya başlayın" durur. Boş bir
-    // çerçeve, kullanıcıya orada ne yapması gerektiğini söylemiyordu.
-    const bool empty = draft.text.empty();
-    const std::wstring shown = empty ? Loc::Str(IDS_TEXT_HINT) : draft.text;
-
-    RECT measure{0, 0, 0, 0};
-    ::DrawTextW(dc, shown.c_str(), -1, &measure, DT_CALCRECT | DT_NOPREFIX);
-    const int width = (std::max)(static_cast<int>(geom::Width(measure)),
-                                 Scale(24, state.dpi));
-    const int height = (std::max)(static_cast<int>(geom::Height(measure)),
-                                  lineHeight);
-
-    const int pad = Scale(4, state.dpi);
-    const RECT box{origin.x - pad, origin.y - pad, origin.x + width + pad,
-                   origin.y + height + pad};
+    const TextDraftLayout layout = MeasureTextDraft(dc, state);
 
     // Kutu KESİKLİ ve vurgu renginde: düz bir çerçeve, kullanıcının çizdiği
     // dikdörtgen aracının sonucuyla karışırdı.
@@ -102,85 +130,216 @@ void DrawTextDraft(HDC dc, const State& state) {
     if (pen != nullptr) {
         const HGDIOBJ oldPen = ::SelectObject(dc, pen);
         const HGDIOBJ oldBrush = ::SelectObject(dc, ::GetStockObject(NULL_BRUSH));
-        ::Rectangle(dc, box.left, box.top, box.right, box.bottom);
+        ::Rectangle(dc, layout.box.left, layout.box.top, layout.box.right,
+                    layout.box.bottom);
         ::SelectObject(dc, oldBrush);
         ::SelectObject(dc, oldPen);
         ::DeleteObject(pen);
     }
 
-    ::SetTextColor(dc, empty ? colors.textDim : draft.color);
-    RECT area{origin.x, origin.y, origin.x + width + Scale(400, state.dpi),
-              origin.y + height + Scale(400, state.dpi)};
-    ::DrawTextW(dc, shown.c_str(), -1, &area, DT_NOPREFIX | DT_NOCLIP);
-
-    // İMLEÇ: son satırın sonunda, yanıp sönerek. Sabit bir çizgi metnin parçası
-    // sanılırdı; yanıp sönen bir çizgi "buraya yazılıyor" demenin evrensel yolu.
-    const std::wstring tail = empty ? std::wstring() : LastLine(draft.text);
-    RECT tailMeasure{0, 0, 0, 0};
-    if (!tail.empty()) {
-        ::DrawTextW(dc, tail.c_str(), -1, &tailMeasure,
-                    DT_CALCRECT | DT_SINGLELINE | DT_NOPREFIX);
+    // Seçim şeridi METNİN ALTINA çizilir; üstüne çizilseydi harfleri örterdi.
+    if (!layout.empty) {
+        DrawTextSelection(dc, state.textEdit, layout, TextSelectionColor());
     }
-    const int caretX = origin.x + static_cast<int>(geom::Width(tailMeasure));
-    const int caretY =
-        origin.y + (empty ? 0 : (LineCount(draft.text) - 1) * lineHeight);
 
+    ::SetTextColor(dc, layout.empty ? colors.textDim : draft.color);
+    RECT area{layout.origin.x, layout.origin.y,
+              layout.box.right + Scale(400, state.dpi),
+              layout.box.bottom + Scale(400, state.dpi)};
+    ::DrawTextW(dc, layout.shown.c_str(), -1, &area, DT_NOPREFIX | DT_NOCLIP);
+
+    // İMLEÇ: tampondaki yerinde, yanıp sönerek. Sabit bir çizgi metnin
+    // parçası sanılırdı; yanıp sönen çizgi "buraya yazılıyor" demenin
+    // evrensel yolu.
+    const POINT caret =
+        layout.empty ? layout.origin
+                     : TextCaretPixel(dc, state.textEdit, layout,
+                                      state.textEdit.caret);
     if (state.caretOn) {
         FillRectColor(dc,
-                      RECT{caretX, caretY,
-                           caretX + (std::max)(1, Scale(2, state.dpi)),
-                           caretY + lineHeight},
-                      empty ? colors.accent : draft.color);
+                      RECT{caret.x, caret.y,
+                           caret.x + (std::max)(1, Scale(2, state.dpi)),
+                           caret.y + layout.lineHeight},
+                      layout.empty ? colors.accent : draft.color);
     }
 
     ::SelectObject(dc, oldFont);
     ::DeleteObject(font);
 }
 
+void BeginTextDraft(HWND window, State& state, POINT image) {
+    CommitTextDraft(state);
+    state.typing = true;
+    state.caretOn = true;
+    state.textDraft = Shape{};
+    state.textDraft.kind = ToolKind::Text;
+    state.textDraft.start = image;
+    state.textDraft.end = image;
+    state.textDraft.color = state.color;
+    state.textDraft.thickness = state.thickness;
+    state.textEdit.Clear();
+    const UINT period = CaretPeriod();
+    if (period != 0) {
+        ::SetTimer(window, kCaretTimer, period, nullptr);
+    }
+    // IME DAHA İLK HARFTEN ÖNCE: aday penceresi ilk tuşta açılır ve o ana
+    // kadar konum verilmemişse pencerenin köşesinde belirir.
+    SyncIme(window, state);
+    ::InvalidateRect(window, nullptr, FALSE);
+}
+
+void EndTextDraft(HWND window, State& state, bool commit) {
+    if (!state.typing) {
+        return;
+    }
+    CancelImeComposition(window);
+    ::KillTimer(window, kCaretTimer);
+    if (commit) {
+        CommitTextDraft(state);
+    } else {
+        // İlk Esc yazmayı iptal eder, pencereyi kapatmaz: kullanıcı bir harfi
+        // yanlış yazdı diye tüm düzenlemeyi kaybetmemeli.
+        state.typing = false;
+        state.textDraft = Shape{};
+        state.textEdit.Clear();
+    }
+    RECT client{};
+    ::GetClientRect(window, &client);
+    LayoutButtons(state, client);
+    ::InvalidateRect(window, nullptr, FALSE);
+}
+
 bool TextTypingChar(HWND window, State& state, wchar_t ch) {
     if (!state.typing) {
         return false;
     }
-    std::wstring& text = state.textDraft.text;
+    TextEdit& edit = state.textEdit;
 
     if (ch == L'\b') {
-        // VEKİL ÇİFTİ TEK KARAKTERDİR: emoji yazıp geri sildiğinde tek bir
-        // pop_back yarım bir kod birimi bırakır ve metin bozulur.
-        if (!text.empty()) {
-            const wchar_t last = text.back();
-            text.pop_back();
-            if (last >= 0xDC00 && last <= 0xDFFF && !text.empty()) {
-                text.pop_back();
-            }
+        // Vekil çift ve seçim TextEdit'in işi: burada yalnızca tuş çevrilir.
+        edit.Backspace();
+    } else if (ch == 0x7F) {
+        // Ctrl+Backspace WM_CHAR'a 0x7F (DEL) olarak düşer; ' ' üstünde olduğu
+        // için eskiden metne GÖRÜNMEZ bir karakter olarak giriyordu. Her metin
+        // kutusundaki anlamı: önceki kelimeyi sil.
+        if (!edit.HasSelection()) {
+            edit.MoveWordLeft(true);
         }
+        edit.EraseSelection();
     } else if (ch == L'\r') {
-        text.push_back(L'\n');   // Enter satır atlar
+        edit.InsertChar(L'\n');   // Enter satır atlar
     } else if (ch == L'\n') {
-        // Ctrl+Enter bitirir. Enter'ın kendisi artık satır atladığı için
-        // yazmayı sonlandıracak bir tuş gerekiyordu.
-        CommitTextDraft(state);
-        RECT client{};
-        ::GetClientRect(window, &client);
-        LayoutButtons(state, client);
+        // Ctrl+Enter bitirir. Enter'ın kendisi satır atladığı için yazmayı
+        // sonlandıracak bir tuş gerekiyordu.
+        EndTextDraft(window, state, true);
+        return true;
     } else if (ch == L'\t') {
-        text.append(4, L' ');
+        edit.Insert(L"    ");
     } else if (ch >= L' ') {
-        text.push_back(ch);
+        edit.InsertChar(ch);
     } else {
-        return true;   // diğer denetim karakterleri yutulur
+        return true;   // diğer denetim karakterleri (Ctrl+A/C/V/X...) yutulur
     }
 
-    // İmleç her tuşta yeniden görünür olmalı: yanıp sönme evresi kapalıyken
-    // yazmak, harfin nereye gittiğini göstermezdi.
-    state.caretOn = true;
-    const UINT period = CaretPeriod();
-    if (period != 0 && state.typing) {
-        ::SetTimer(window, kCaretTimer, period, nullptr);
+    AfterEdit(window, state);
+    return true;
+}
+
+bool TextKeyDown(HWND window, State& state, WPARAM key, bool control,
+                 bool shift) {
+    if (!state.typing) {
+        return false;
     }
-    if (state.typing) {
-        MoveImeCaret(window, ToClient(state, state.textDraft.start));
+    TextEdit& edit = state.textEdit;
+
+    switch (key) {
+        case VK_LEFT:
+            if (control) {
+                edit.MoveWordLeft(shift);
+            } else {
+                edit.MoveLeft(shift);
+            }
+            break;
+        case VK_RIGHT:
+            if (control) {
+                edit.MoveWordRight(shift);
+            } else {
+                edit.MoveRight(shift);
+            }
+            break;
+        case VK_UP:
+            edit.MoveUp(shift);
+            break;
+        case VK_DOWN:
+            edit.MoveDown(shift);
+            break;
+        case VK_HOME:
+            // Ctrl+Home metnin başı, yalnız Home satır başı: Windows'un kendi
+            // metin kutularıyla aynı.
+            if (control) {
+                edit.MoveTo(0, shift);
+            } else {
+                edit.MoveHome(shift);
+            }
+            break;
+        case VK_END:
+            if (control) {
+                edit.MoveTo(edit.text.size(), shift);
+            } else {
+                edit.MoveEnd(shift);
+            }
+            break;
+        case VK_DELETE:
+            edit.Delete();
+            break;
+        case 'A':
+            if (!control) {
+                return false;
+            }
+            edit.SelectAll();
+            break;
+        case 'C':
+            if (!control) {
+                return false;
+            }
+            // Seçim yokken de yutulur: düşseydi görüntüyü kopyalayan eylem
+            // yazılan metni kesinleştirirdi ve kullanıcı bunu istememişti.
+            CopySelection(window, state);
+            break;
+        case 'X':
+            if (!control) {
+                return false;
+            }
+            CopySelection(window, state);
+            edit.EraseSelection();
+            break;
+        case 'V':
+            if (!control) {
+                return false;
+            }
+            PasteFromClipboard(window, state);
+            break;
+        default:
+            return false;
     }
-    ::InvalidateRect(window, nullptr, FALSE);
+
+    AfterEdit(window, state);
+    return true;
+}
+
+bool TextMouseDown(HWND window, State& state, POINT client) {
+    if (!state.typing) {
+        return false;
+    }
+    size_t pos = 0;
+    if (!TextHitTest(window, state, client, pos)) {
+        return false;   // kutunun dışı: çağıran metni kesinleştirir
+    }
+    // Shift+tık seçimi uzatır, düz tık imleci taşır: metin kutularının
+    // evrensel davranışı.
+    const bool shift = (::GetKeyState(VK_SHIFT) & 0x8000) != 0;
+    state.textEdit.MoveTo(pos, shift);
+    AfterEdit(window, state);
     return true;
 }
 

@@ -43,6 +43,14 @@ void PickTool(HWND window, State& state, ToolKind tool) {
         return true;
     }
 
+    // YAZARKEN TUŞLAR METNİNDİR: ok tuşları imleci gezdirir, Ctrl+A/C/X/V
+    // pano ile konuşur. Buradan geçmeyen tuşlar (Esc, Ctrl+Z...) aşağıdaki
+    // kısayollara düşer; harf ve rakam kısayolları ise zaten `typing`
+    // bayrağına bakar.
+    if (TextKeyDown(window, state, key, control, shift)) {
+        return true;
+    }
+
     if (control && (key == VK_OEM_PLUS || key == VK_ADD)) {
         ApplyAction(window, state, kActionZoomIn);
         return true;
@@ -82,10 +90,7 @@ void PickTool(HWND window, State& state, ToolKind tool) {
         if (state.typing) {
             // İlk Esc yazmayı iptal eder, pencereyi kapatmaz: kullanıcı bir
             // harfi yanlış yazdı diye tüm düzenlemeyi kaybetmemeli.
-            state.typing = false;
-            state.textDraft = Shape{};
-            ::KillTimer(window, kCaretTimer);
-            ::InvalidateRect(window, nullptr, FALSE);
+            EndTextDraft(window, state, false);
             return true;
         }
         if (state.dragging || state.movingShape ||

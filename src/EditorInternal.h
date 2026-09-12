@@ -15,6 +15,7 @@
 #include "Geometry.h"
 #include "OcrLayout.h"
 #include "Settings.h"
+#include "TextEdit.h"
 
 #include <memory>
 #include <string>
@@ -199,7 +200,11 @@ struct State {
     Shape draft;
 
     bool typing = false;
+    // `textDraft.text`, tamponun AYNASIDIR: çizim ve kesinleştirme onu okur.
+    // İmleç ve seçim ise `textEdit`te yaşar; her tuş sonrası metin oraya
+    // yansıtılır, böylece taslağı tüketen kod tamponu tanımak zorunda kalmaz.
     Shape textDraft;
+    TextEdit textEdit;
     bool caretOn = true;   // metin imlecinin yanıp sönme evresi
 
     int hoverButton = -1;
@@ -423,8 +428,17 @@ void DrawTooltip(HDC dc, const State& state, const RECT& client);
 // Yazılan metnin önizlemesi tek başına yetmiyor, çünkü ilk harf yazılana
 // kadar önizlenecek bir şey yok.
 void DrawTextDraft(HDC dc, const State& state);
-// Yazma sırasındaki tuşlar. İşlendiyse true döner.
+// Yazmayı verilen görüntü noktasında başlatır; süren taslağı önce kesinleştirir.
+void BeginTextDraft(HWND window, State& state, POINT image);
+// Yazmayı bitirir: kesinleştirir ya da (Esc) atar; IME bileşimini iptal eder.
+void EndTextDraft(HWND window, State& state, bool commit);
+// Yazma sırasındaki tuşlar. İşlendiyse true döner. Karakterler WM_CHAR'dan,
+// gezinme ve pano tuşları WM_KEYDOWN'dan gelir.
 [[nodiscard]] bool TextTypingChar(HWND window, State& state, wchar_t ch);
+[[nodiscard]] bool TextKeyDown(HWND window, State& state, WPARAM key,
+                               bool control, bool shift);
+// Yazarken tıklama: kutunun içindeyse imleci oraya taşır ve true döner.
+[[nodiscard]] bool TextMouseDown(HWND window, State& state, POINT client);
 
 }  // namespace editor
 }  // namespace crisp
