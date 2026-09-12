@@ -65,6 +65,8 @@ set(CRISP_CORE_SOURCES
     src/NameFormat.cpp
     src/ShellIntegration.cpp
     src/ColorSpace.cpp
+    src/ColorFormat.cpp
+    src/TailwindPalette.cpp
     src/Annotation.cpp
     src/History.cpp
     src/Sound.cpp
