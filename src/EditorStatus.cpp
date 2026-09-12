@@ -11,7 +11,9 @@
 #include "EditorInternal.h"
 
 #include "Geometry.h"
+#include "Localization.h"
 #include "Theme.h"
+#include "resource.h"
 
 #include <algorithm>
 #include <cmath>
@@ -127,6 +129,17 @@ void DrawStatusBar(HDC dc, const State& state, const RECT& client) {
         ::DrawTextW(dc, state.flashText.c_str(), -1, &area,
                     DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX |
                         DT_END_ELLIPSIS);
+    } else if (state.typing) {
+        // YAZARKEN TUŞ İPUCU: ok tuşları, Shift, Ctrl+A, Enter ve Esc'nin ne
+        // yaptığı hiçbir yerde yazmıyordu; kutunun içindeki "yazmaya başlayın"
+        // ilk harften sonra kayboluyor. Ölçünün yerine geçer, onay gibi.
+        ::SetTextColor(dc, colors.textDim);
+        const std::wstring hint = Loc::Str(IDS_TEXT_HINT_EDIT);
+        RECT area{bar.left + pad, bar.top, bar.right - Scale(64, state.dpi),
+                  bar.bottom};
+        ::DrawTextW(dc, hint.c_str(), -1, &area,
+                    DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX |
+                        DT_END_ELLIPSIS);
     } else if (state.image != nullptr && state.image->Valid()) {
         ::SetTextColor(dc, colors.textDim);
         ::swprintf_s(text, L"%d × %d px", state.image->Width(),
@@ -136,7 +149,8 @@ void DrawStatusBar(HDC dc, const State& state, const RECT& client) {
                     DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
     }
 
-    if (state.hoverImage.x >= 0 && state.flashText.empty()) {
+    // İmleç konumu ipucu ve onay şeridiyle çakışırdı; ikisi de kısa ömürlü.
+    if (state.hoverImage.x >= 0 && state.flashText.empty() && !state.typing) {
         ::SetTextColor(dc, colors.textDim);
         ::swprintf_s(text, L"%ld, %ld", state.hoverImage.x, state.hoverImage.y);
         RECT area{bar.left, bar.top, bar.right, bar.bottom};

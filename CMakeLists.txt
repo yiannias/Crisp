@@ -208,6 +208,7 @@ set(CRISP_APP_SOURCES
     src/EditorUpload.cpp
     src/UploadText.cpp
     src/EditorText.cpp
+    src/EditorTextLayout.cpp
     src/EditorEffects.cpp
     src/EditorSelect.cpp
     src/EditorActions.cpp

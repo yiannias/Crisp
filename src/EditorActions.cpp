@@ -168,12 +168,16 @@ void CommitTextDraft(State& state) {
         return;
     }
     state.typing = false;
+    // Tampon metnin KAYNAĞIDIR; ayna her tuşta tazelenir ama kesinleştirme
+    // yine de tampondan okur, aradaki bir yolun aynayı atlamış olmasına karşı.
+    state.textDraft.text = state.textEdit.text;
     if (!state.textDraft.text.empty()) {
         state.document.AddShape(state.textDraft);
         DropScaleSource(state);
         Rebuild(state);
     }
     state.textDraft = Shape{};
+    state.textEdit.Clear();
 }
 
 void OpenColorPicker(HWND window, State& state, const Button& button) {
@@ -309,26 +313,19 @@ void ApplyAction(HWND window, State& state, int action) {
 }
 
 void BeginDraw(HWND window, State& state, POINT client) {
+    // YAZARKEN KUTUNUN İÇİNE TIKLAMAK İMLECİ TAŞIR, yeni kutu açmaz. Tuval
+    // sınırından ÖNCE bakılır: kutu tuvalden taşmış olabilir ve taşan harfe
+    // tıklamak da imleci oraya götürmeli.
+    if (TextMouseDown(window, state, client)) {
+        return;
+    }
     if (!::PtInRect(&state.canvas, client)) {
         return;
     }
     const POINT image = ToImage(state, client);
 
     if (state.tool == ToolKind::Text) {
-        CommitTextDraft(state);
-        state.typing = true;
-        state.caretOn = true;
-        state.textDraft = Shape{};
-        state.textDraft.kind = ToolKind::Text;
-        state.textDraft.start = image;
-        state.textDraft.end = image;
-        state.textDraft.color = state.color;
-        state.textDraft.thickness = state.thickness;
-        const UINT blink = ::GetCaretBlinkTime();
-        if (blink != 0 && blink != INFINITE) {
-            ::SetTimer(window, kCaretTimer, blink, nullptr);
-        }
-        ::InvalidateRect(window, nullptr, FALSE);
+        BeginTextDraft(window, state, image);
         return;
     }
 
