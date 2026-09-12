@@ -145,7 +145,12 @@ LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
         case WM_NCHITTEST:
             return (state != nullptr && state->transient) ? HTCLIENT : HTCAPTION;
 
+        // GEÇİCİ İĞNE TIKLA KAPANIR — basışta, bırakışı beklemeden: basış
+        // başka bir pencereye odak taşıyorsa bırakış buraya hiç gelmeyebilir.
+        case WM_LBUTTONDOWN:
         case WM_LBUTTONUP:
+        case WM_NCLBUTTONDOWN:
+        case WM_MBUTTONDOWN:
             if (state != nullptr && state->transient) {
                 ::DestroyWindow(window);
                 return 0;

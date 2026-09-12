@@ -122,6 +122,41 @@ bool PinQrForLink(HINSTANCE instance, HWND reference, const std::wstring& link) 
                     DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS |
                         DT_NOPREFIX);
 
+        // KAPATMA DÜĞMESİ: sağ üst köşede koyu bir daire ve beyaz bir çarpı.
+        // Kartın her yeri tıkla-kapanır ama bunu söyleyen bir şey olmalı;
+        // ipucu satırı okunmadan da anlaşılan evrensel işaret bu.
+        {
+            const int diameter = Scale(22, dpi);
+            const RECT button{width - pad / 2 - diameter, pad / 2,
+                              width - pad / 2, pad / 2 + diameter};
+            const HBRUSH fill = ::CreateSolidBrush(RGB(60, 60, 60));
+            const HPEN edge = ::CreatePen(PS_SOLID, 1, RGB(60, 60, 60));
+            const HPEN cross =
+                ::CreatePen(PS_SOLID, (std::max)(2, Scale(2, dpi)), RGB(255, 255, 255));
+            if (fill != nullptr && edge != nullptr && cross != nullptr) {
+                const HGDIOBJ oldBrush = ::SelectObject(dc.get(), fill);
+                const HGDIOBJ oldPen = ::SelectObject(dc.get(), edge);
+                ::Ellipse(dc.get(), button.left, button.top, button.right, button.bottom);
+                ::SelectObject(dc.get(), cross);
+                const int inset = diameter * 3 / 10;
+                ::MoveToEx(dc.get(), button.left + inset, button.top + inset, nullptr);
+                ::LineTo(dc.get(), button.right - inset, button.bottom - inset);
+                ::MoveToEx(dc.get(), button.right - inset, button.top + inset, nullptr);
+                ::LineTo(dc.get(), button.left + inset, button.bottom - inset);
+                ::SelectObject(dc.get(), oldPen);
+                ::SelectObject(dc.get(), oldBrush);
+            }
+            if (fill != nullptr) {
+                ::DeleteObject(fill);
+            }
+            if (edge != nullptr) {
+                ::DeleteObject(edge);
+            }
+            if (cross != nullptr) {
+                ::DeleteObject(cross);
+            }
+        }
+
         ::SelectObject(dc.get(), oldFont);
         ::SelectObject(dc.get(), oldCard);
         ::SelectObject(source.get(), oldQr);

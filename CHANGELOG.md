@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 0.9.0 — a guide, a caret, a QR code and a version check
 
 ### Added — step guide
 
@@ -65,8 +65,13 @@ for the same reason uploads do.
 ### Changed
 
 - The settings window has four columns; three no longer fit.
-- The repository is a git repository with a `.gitattributes` keeping sources
-  LF.
+- Every string added since 0.8 is translated into all 16 languages, including
+  the editor *Escape* setting that shipped in English only.
+- The QR card is a *transient* pin: a click or its × closes it, it closes on
+  its own after a minute, it cannot be dragged, and it is never written to the
+  pin index.
+- Message boxes owned by the hidden host window open on the cursor's monitor
+  instead of the top-left corner.
 
 ### Fixed
 
