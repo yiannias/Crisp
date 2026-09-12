@@ -220,6 +220,7 @@ set(CRISP_APP_SOURCES
     src/SettingsValues.cpp
     src/Toast.cpp
     src/PinWindow.cpp
+    src/PinMenu.cpp
     src/PinPersist.cpp
     src/Ocr.cpp
     src/OcrScan.cpp
