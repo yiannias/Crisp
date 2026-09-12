@@ -1,6 +1,8 @@
 // Toast.cpp — bkz. Toast.h.
 #include "Toast.h"
 
+#include "UiCommon.h"
+
 #include "Geometry.h"
 #include "ImageTransform.h"
 #include "Theme.h"
@@ -56,29 +58,6 @@ struct ToastState {
 // binen bildirimler ekranın köşesini kaplardı ve hiçbiri okunmazdı.
 HWND g_window = nullptr;
 std::unique_ptr<ToastState> g_state;
-
-[[nodiscard]] int Scale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
-}
-
-[[nodiscard]] HFONT CreateUiFont(unsigned dpi, int pointSize, int weight) {
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(pointSize, static_cast<int>(dpi), 72);
-    font.lfWeight = weight;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    return ::CreateFontIndirectW(&font);
-}
-
-void FillRectColor(HDC dc, const RECT& r, COLORREF color) {
-    const HBRUSH brush = ::CreateSolidBrush(color);
-    if (brush == nullptr) {
-        return;
-    }
-    ::FillRect(dc, &r, brush);
-    ::DeleteObject(brush);
-}
 
 // Kareyi dolduracak şekilde ölçekleyip ortadan kırpar.
 [[nodiscard]] bool SquareThumbnail(const Image& source, int side, Image& out) {

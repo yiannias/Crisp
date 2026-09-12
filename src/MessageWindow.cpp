@@ -21,20 +21,6 @@ constexpr const wchar_t* kWindowClass = L"CrispMessageBox";
 
 }  // namespace
 
-int MsgScale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
-}
-
-[[nodiscard]] HFONT MsgCreateUiFont(unsigned dpi, int pointSize, int weight) {
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(pointSize, static_cast<int>(dpi), 72);
-    font.lfWeight = weight;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    return ::CreateFontIndirectW(&font);
-}
-
 namespace {
 
 // Simge glifi ve rengi. Renk temadan DEĞİL sabit gelir: bir hata simgesinin
@@ -93,7 +79,11 @@ LRESULT CALLBACK MessageProc(HWND window, UINT message, WPARAM wParam,
                 ::DestroyWindow(window);
                 return 0;
             }
-            if (id == kIdPrimary) {
+            // IDOK: IsDialogMessage Enter'ı, odaktaki düğme yoksa IDOK olarak
+            // gönderir (pencere gerçek bir iletişim kutusu olmadığından
+            // DM_GETDEFID boş döner). Eskiden düşüp DefWindowProc'ta yok
+            // oluyordu ve Enter, Tab'a basılmadan hiçbir şey yapmıyordu.
+            if (id == kIdPrimary || id == IDOK) {
                 state->result = state->buttons == MessageButtons::YesNo
                                     ? MessageResult::No
                                     : MessageResult::Ok;
@@ -197,20 +187,20 @@ MessageResult ShowMessage(HINSTANCE instance, HWND owner,
         dpiX = 96;
     }
     state.dpi = dpiX;
-    state.font = MsgCreateUiFont(state.dpi, 10, FW_NORMAL);
+    state.font = CreateUiFont(state.dpi, 10, FW_NORMAL);
     state.background = ::CreateSolidBrush(theme::Colors().surfaceAlt);
 
-    const int pad = MsgScale(kMsgPad, state.dpi);
-    const int textWidth = MsgScale(kMsgWidth, state.dpi) - pad * 2 -
-                          MsgScale(kMsgIconSide + kMsgIconGap, state.dpi);
+    const int pad = Scale(kMsgPad, state.dpi);
+    const int textWidth = Scale(kMsgWidth, state.dpi) - pad * 2 -
+                          Scale(kMsgIconSide + kMsgIconGap, state.dpi);
     state.textHeight = MsgMeasureText(text, textWidth, state.font);
-    if (state.textHeight < MsgScale(kMsgMinTextHeight, state.dpi)) {
-        state.textHeight = MsgScale(kMsgMinTextHeight, state.dpi);
+    if (state.textHeight < Scale(kMsgMinTextHeight, state.dpi)) {
+        state.textHeight = Scale(kMsgMinTextHeight, state.dpi);
     }
 
-    RECT desired{0, 0, MsgScale(kMsgWidth, state.dpi),
+    RECT desired{0, 0, Scale(kMsgWidth, state.dpi),
                  pad * 2 + state.textHeight +
-                     MsgScale(kMsgButtonHeight + kMsgPad * 2, state.dpi)};
+                     Scale(kMsgButtonHeight + kMsgPad * 2, state.dpi)};
     const DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
     ::AdjustWindowRectEx(&desired, style, FALSE, WS_EX_DLGMODALFRAME);
     const int width = static_cast<int>(geom::Width(desired));
@@ -255,6 +245,10 @@ MessageResult ShowMessage(HINSTANCE instance, HWND owner,
     theme::ApplyToWindow(window);
     ::ShowWindow(window, SW_SHOW);
     ::SetForegroundWindow(window);
+    // Odak birincil düğmede başlar: Enter ve Boşluk hemen çalışsın.
+    if (const HWND primary = ::GetDlgItem(window, kIdPrimary); primary != nullptr) {
+        ::SetFocus(primary);
+    }
 
     MSG message{};
     while (::GetMessageW(&message, nullptr, 0, 0) > 0) {

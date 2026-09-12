@@ -19,8 +19,6 @@
 namespace crisp {
 namespace {
 
-// Kaplama açılmadan önce kısa bir bekleme; gerekçesi AppCapture.cpp'de.
-constexpr DWORD kMenuSettleMs = 120;
 
 }  // namespace
 

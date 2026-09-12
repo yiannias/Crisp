@@ -86,16 +86,19 @@ void ApplyZoom(PinState& state, int newZoom, POINT anchorScreen) {
 }
 
 void SaveAs(const PinState& state) {
-    wchar_t path[MAX_PATH] = L"";
-    std::wstring suggestion = L"Crisp " + TimestampForFileName() + L".png";
-    ::wcscpy_s(path, suggestion.c_str());
+    // UZUN YOL TAMPONU: MAX_PATH'ten uzun bir hedef seçildiğinde iletişim
+    // kutusu FNERR_BUFFERTOOSMALL ile döner ve bu, iptal sanılırdı.
+    std::wstring path(32768, L'\0');
+    const std::wstring suggestion = L"Crisp " + TimestampForFileName() + L".png";
+    ::wcscpy_s(path.data(), path.size(), suggestion.c_str());
 
     OPENFILENAMEW dialog{};
     dialog.lStructSize = sizeof(dialog);
     dialog.hwndOwner = state.window;
-    dialog.lpstrFilter = L"PNG görüntü\0*.png\0";
-    dialog.lpstrFile = path;
-    dialog.nMaxFile = static_cast<DWORD>(std::size(path));
+    // Dilden bağımsız süzgeç metni: düzenleyicinin "Farklı kaydet"iyle aynı.
+    dialog.lpstrFilter = L"PNG (*.png)\0*.png\0";
+    dialog.lpstrFile = path.data();
+    dialog.nMaxFile = static_cast<DWORD>(path.size());
     dialog.lpstrDefExt = L"png";
     dialog.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_EXPLORER;
 
@@ -232,6 +235,10 @@ LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             return 0;
         }
 
+        // WM_NCHITTEST her yeri başlık çubuğu saydığı için çift tık istemci
+        // değil, İSTEMCİ DIŞI çift tık olarak gelir; WM_LBUTTONDBLCLK hiç
+        // ulaşmıyordu ve "çift tık = gerçek boyut" çalışmıyordu.
+        case WM_NCLBUTTONDBLCLK:
         case WM_LBUTTONDBLCLK: {
             if (state != nullptr) {
                 POINT cursor{};

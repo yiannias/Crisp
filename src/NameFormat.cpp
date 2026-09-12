@@ -4,6 +4,7 @@
 #include <lmcons.h>
 
 #include <cstdio>
+#include <cwchar>
 
 namespace crisp {
 namespace {
@@ -142,6 +143,22 @@ std::wstring SanitizeFileName(const std::wstring& name) {
     }
     while (!out.empty() && (out.back() == L'.' || out.back() == L' ')) {
         out.pop_back();
+    }
+
+    // AYGIT ADLARI: "CON.png" konsola, "NUL" hiçliğe yazar; CreateDirectory
+    // "COM1" için başarısız olur. Uzantıdan önceki gövde bunlardan biriyse
+    // başına alt çizgi gelir.
+    static constexpr const wchar_t* kReserved[] = {
+        L"CON",  L"PRN",  L"AUX",  L"NUL",  L"COM1", L"COM2", L"COM3", L"COM4",
+        L"COM5", L"COM6", L"COM7", L"COM8", L"COM9", L"LPT1", L"LPT2", L"LPT3",
+        L"LPT4", L"LPT5", L"LPT6", L"LPT7", L"LPT8", L"LPT9"};
+    const size_t dot = out.find(L'.');
+    const std::wstring stem = out.substr(0, dot);
+    for (const wchar_t* reserved : kReserved) {
+        if (::_wcsicmp(stem.c_str(), reserved) == 0) {
+            out.insert(out.begin(), L'_');
+            break;
+        }
     }
     return out;
 }

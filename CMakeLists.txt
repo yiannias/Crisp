@@ -216,6 +216,8 @@ set(CRISP_APP_SOURCES
 
 set(CRISP_APP_HEADERS
     src/App.h
+    src/Version.h
+    src/UiCommon.h
     src/Overlay.h
     src/OverlayInternal.h
     src/OverlayPaint.h

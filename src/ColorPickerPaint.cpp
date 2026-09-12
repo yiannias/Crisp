@@ -14,25 +14,6 @@ namespace crisp {
 namespace picker {
 namespace {
 
-[[nodiscard]] HFONT CreateUiFont(unsigned dpi, int points, int weight) {
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(points, static_cast<int>(dpi), 72);
-    font.lfWeight = weight;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    return ::CreateFontIndirectW(&font);
-}
-
-void FillRectColor(HDC dc, const RECT& area, COLORREF color) {
-    const HBRUSH brush = ::CreateSolidBrush(color);
-    if (brush == nullptr) {
-        return;
-    }
-    ::FillRect(dc, &area, brush);
-    ::DeleteObject(brush);
-}
-
 // Doygunluk-parlaklık karesi: soldan sağa doygunluk, yukarıdan aşağı
 // parlaklık. Yalnızca TON DEĞİŞTİĞİNDE üretilir; her boyamada otuz bin piksel
 // hesaplamak fareyi sürüklerken takılma olarak hissedilirdi.

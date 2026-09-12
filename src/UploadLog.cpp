@@ -13,6 +13,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <mutex>
 
 namespace crisp {
 namespace {
@@ -143,6 +144,12 @@ bool AppendUploadRecord(const UploadRecord& record, size_t limit) {
     if (stamped.when == 0) {
         stamped.when = NowUnixSeconds();
     }
+
+    // OKU-DEĞİŞTİR-YAZ TEK SEFERDE BİR İŞ PARÇACIĞI: yüklemeler ayrı iş
+    // parçacıklarında bitiyor ve arka arkaya iki yakalama aynı anda buraya
+    // girip birbirinin kaydını ezebiliyordu.
+    static std::mutex s_lock;
+    const std::lock_guard<std::mutex> guard(s_lock);
 
     // DOSYA HER SEFERİNDE BAŞTAN YAZILIR, EKLENMEZ. Sona eklemek daha ucuz
     // olurdu ama budama yine de tam bir okuma-yazma gerektiriyor, ve iki ayrı

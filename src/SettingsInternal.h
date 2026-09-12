@@ -5,6 +5,8 @@
 // paylaşılır; dışarıya açık değildir.
 #pragma once
 
+#include "UiCommon.h"
+
 #include "Settings.h"
 
 #include <string>
@@ -104,11 +106,11 @@ struct State {
     // Koyu temada denetim zeminleri WM_CTLCOLOR* ile boyanır; fırça her
     // boyamada yeniden oluşturulmasın diye bir kez üretilir.
     HBRUSH backgroundBrush = nullptr;
+    HBRUSH fieldBrush = nullptr;   // düzenleme kutuları ve listeler (surfaceAlt)
     HFONT font = nullptr;
     HFONT groupFont = nullptr;
 };
 
-[[nodiscard]] int Scale(int value, unsigned dpi) noexcept;
 
 // Kısayol eyleminin görünen adı. Ayarlar penceresi ve tepsi menüsü aynı
 // listeyi kullanır; iki ayrı kopya, birine eylem eklendiğinde diğerinin

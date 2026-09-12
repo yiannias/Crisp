@@ -90,3 +90,16 @@ CRISP_TEST(NameFormat, Sanitize_yol_ust_dizine_cikamaz) {
     CHECK(SanitizeRelativePath(L"\\\\a\\\\b\\\\") == L"a\\b");
     CHECK(SanitizeRelativePath(L"") == L"");
 }
+
+CRISP_TEST(NameFormat, Sanitize_aygit_adlarina_alt_cizgi_ekler) {
+    // "CON.png" konsola yazar, "NUL" hiçliğe; pencere başlığından gelen bir ad
+    // bunlardan biriyse dosya sessizce kaybolurdu.
+    CHECK(SanitizeFileName(L"CON") == L"_CON");
+    CHECK(SanitizeFileName(L"nul.png") == L"_nul.png");
+    CHECK(SanitizeFileName(L"Com1.tmp.png") == L"_Com1.tmp.png");
+    CHECK(SanitizeFileName(L"LPT9") == L"_LPT9");
+    // Önek olarak geçmesi yetmez: "console" ve "CONTROL" sıradan adlardır.
+    CHECK(SanitizeFileName(L"console") == L"console");
+    CHECK(SanitizeFileName(L"CONTROL.png") == L"CONTROL.png");
+    CHECK(SanitizeFileName(L"COM10") == L"COM10");
+}

@@ -88,10 +88,26 @@ void PickTool(HWND window, State& state, ToolKind tool) {
             ::InvalidateRect(window, nullptr, FALSE);
             return true;
         }
-        if (state.dragging || state.movingShape) {
+        if (state.dragging || state.movingShape ||
+            state.shapeGrab != geom::Grab::None) {
+            // Taşıma ve boyutlandırma ZATEN belgeye uygulanmış durumda ve
+            // BeginEdit geçmişe bir adım itmiş; iptal o adımı geri alır. Fare
+            // yakalaması da bırakılır, yoksa Esc'den sonra pencere fareyi
+            // tutmaya devam ederdi.
+            const bool revert = state.editRecorded &&
+                                (state.movingShape ||
+                                 state.shapeGrab != geom::Grab::None);
             state.dragging = false;
             state.movingShape = false;
+            state.shapeGrab = geom::Grab::None;
+            state.editRecorded = false;
             state.draft = Shape{};
+            if (::GetCapture() == window) {
+                ::ReleaseCapture();
+            }
+            if (revert && state.document.Undo()) {
+                Rebuild(state);
+            }
             ::InvalidateRect(window, nullptr, FALSE);
             return true;
         }

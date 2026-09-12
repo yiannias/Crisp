@@ -50,11 +50,19 @@ struct OverlayResult {
 // layout: TextSelect kipinde ZORUNLU — çağıran OCR'ı önceden çalıştırıp
 //         kelime kutularını verir. Kaplamanın kendisi OCR çağırmaz; tanıma
 //         saniyeler sürebilir ve pencere açıldıktan sonra donmuş görünürdü.
+// frozen: geçerli bir görüntüyle gelirse ekran YENİDEN DONDURULMAZ; metin
+//         seçme akışı OCR'ı bu görüntü üzerinde çalıştırmıştır ve ikinci bir
+//         yakalama kelime kutularını başka bir kareye bindirirdi.
+// showActionBar: yerleşmiş seçimin yanında eylem çubuğu. Yalnızca çağıran
+//         `OverlayResult::action`ı uyguluyorsa açılmalı; kaydırmalı yakalama
+//         gibi sonucu görmezden gelen bir akışta "iğnele"ye basmak sessizce
+//         başka bir şey yapardı.
 [[nodiscard]] OverlayResult RunSelectionOverlay(HINSTANCE instance,
                                                 const Settings& settings,
                                                 OverlayMode mode,
                                                 bool preferWindowPick,
                                                 Image& frozen,
-                                                const OcrLayout* layout = nullptr);
+                                                const OcrLayout* layout = nullptr,
+                                                bool showActionBar = true);
 
 }  // namespace crisp

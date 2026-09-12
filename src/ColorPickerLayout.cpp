@@ -11,10 +11,6 @@
 namespace crisp {
 namespace picker {
 
-int Scale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
-}
-
 void SetColor(State& state, COLORREF color) {
     state.color = color;
     const Hsv fresh = RgbToHsv(color);

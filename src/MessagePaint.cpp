@@ -59,8 +59,8 @@ void MsgPaint(HWND window, const MessageState& state) {
     ::GetClientRect(window, &client);
     const Palette& colors = theme::Colors();
     const unsigned dpi = state.dpi;
-    const int pad = MsgScale(kMsgPad, dpi);
-    const int iconSide = MsgScale(kMsgIconSide, dpi);
+    const int pad = Scale(kMsgPad, dpi);
+    const int iconSide = Scale(kMsgIconSide, dpi);
 
     const HDC memory = ::CreateCompatibleDC(dc);
     const HBITMAP buffer = ::CreateCompatibleBitmap(dc, geom::Width(client),
@@ -76,7 +76,7 @@ void MsgPaint(HWND window, const MessageState& state) {
     // DÜĞME ŞERİDİ AYRI ZEMİNDE: sistem ileti kutusunun da yaptığı gibi, metin
     // alanıyla eylem alanını ayırmak kutuyu okunur kılıyor.
     const int stripTop = static_cast<int>(geom::Height(client)) -
-                         MsgScale(kMsgButtonHeight + kMsgPad * 2, dpi);
+                         Scale(kMsgButtonHeight + kMsgPad * 2, dpi);
     const RECT strip{0, stripTop, static_cast<LONG>(geom::Width(client)),
                      static_cast<LONG>(geom::Height(client))};
     const HBRUSH stripBrush = ::CreateSolidBrush(colors.surfaceAlt);
@@ -93,7 +93,7 @@ void MsgPaint(HWND window, const MessageState& state) {
 
     ::SetBkMode(memory, TRANSPARENT);
 
-    const HFONT iconFont = MsgCreateUiFont(dpi, 22, FW_NORMAL);
+    const HFONT iconFont = CreateUiFont(dpi, 22, FW_NORMAL);
     if (iconFont != nullptr) {
         const HGDIOBJ old = ::SelectObject(memory, iconFont);
         LOGFONTW logical{};
@@ -115,7 +115,7 @@ void MsgPaint(HWND window, const MessageState& state) {
 
     const HGDIOBJ oldFont = ::SelectObject(memory, state.font);
     ::SetTextColor(memory, colors.text);
-    const int textLeft = pad + iconSide + MsgScale(kMsgIconGap, dpi);
+    const int textLeft = pad + iconSide + Scale(kMsgIconGap, dpi);
     RECT textArea{textLeft, pad, static_cast<LONG>(geom::Width(client)) - pad,
                   pad + state.textHeight};
     ::DrawTextW(memory, state.text.c_str(), -1, &textArea,
@@ -136,9 +136,9 @@ void MsgBuildButtons(HWND window, MessageState& state) {
     RECT client{};
     ::GetClientRect(window, &client);
 
-    const int pad = MsgScale(kMsgPad, dpi);
-    const int width = MsgScale(kMsgButtonWidth, dpi);
-    const int height = MsgScale(kMsgButtonHeight, dpi);
+    const int pad = Scale(kMsgPad, dpi);
+    const int width = Scale(kMsgButtonWidth, dpi);
+    const int height = Scale(kMsgButtonHeight, dpi);
     const int top = static_cast<int>(geom::Height(client)) - pad - height;
     int right = static_cast<int>(geom::Width(client)) - pad;
 
@@ -155,7 +155,7 @@ void MsgBuildButtons(HWND window, MessageState& state) {
         nullptr);
 
     if (twoButtons) {
-        right -= width + MsgScale(kMsgButtonGap, dpi);
+        right -= width + Scale(kMsgButtonGap, dpi);
         (void)::CreateWindowExW(
             0, L"BUTTON", Loc::Str(IDS_MSG_YES).c_str(),
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, right - width,

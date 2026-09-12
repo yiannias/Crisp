@@ -335,3 +335,25 @@ CRISP_TEST(Upload, Digerleri_multipart_ve_POST_kalir) {
         CHECK(request.headers.find(L"multipart/form-data") != std::wstring::npos);
     }
 }
+
+CRISP_TEST(Upload, JsonFindString_unicode_kacisini_cozer) {
+    // Go'nun encoding/json'ı URL'deki & < > karakterlerini \u ile kaçırır; bir
+    // sorgu dizesi olan bağlantı eskiden "u0026" olarak bozuluyordu.
+    CHECK(JsonFindString(R"({"k":"a\u0026b=1"})", "k") == std::wstring(L"a&b=1"));
+    // Temel düzlem dışı: vekil çift tek bir karaktere birleşir.
+    CHECK(JsonFindString(R"({"k":"\ud83d\ude00"})", "k") ==
+          std::wstring(L"\U0001F600"));
+    // Bozuk kaçış olduğu gibi kalır, dize kaybolmaz.
+    CHECK(JsonFindString(R"({"k":"x\uZZZZy"})", "k") == std::wstring(L"xuZZZZy"));
+}
+
+CRISP_TEST(Upload, JsonFindString_dize_degerden_ileriye_atlamaz) {
+    // `data` bir dizeyse `data.link` YOKTUR. Eski ayrıştırıcı bir sonraki
+    // '{' karakterine kadar ilerleyip alakasız bir nesnenin `link`ini
+    // döndürüyordu.
+    const std::string body = R"({"data":"x","other":{"link":"https://yanlis"}})";
+    CHECK(JsonFindString(body, "data.link").empty());
+    CHECK(JsonFindString(body, "other.link") == std::wstring(L"https://yanlis"));
+    // Sayı değeri de nesne değildir.
+    CHECK(JsonFindString(R"({"a":1,"b":{"c":"d"}})", "a.c").empty());
+}

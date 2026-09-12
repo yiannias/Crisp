@@ -6,6 +6,8 @@
 // Ayrım işlevsel: bir dosya NE göründüğünü, diğeri NE OLDUĞUNU anlatır.
 #pragma once
 
+#include "UiCommon.h"
+
 #include "AlphaLayer.h"
 #include "Annotation.h"
 #include "Capture.h"
@@ -173,6 +175,16 @@ struct State {
     // hatalarını üst üste bindirir ve şekil sürüklendikçe erirdi.
     geom::Grab shapeGrab = geom::Grab::None;
     RECT shapeOrigin{};
+    // Sürükleme başlarkenki şeklin KENDİSİ: serbest çizimde iç noktalar
+    // sınırları belirlemez ve her karede o anki hâlden oranlamak onları
+    // yuvarlama hatasıyla kaydırırdı. Her hareket bu kopyadan başlar.
+    Shape shapeOriginal;
+    // BeginEdit yalnızca ilk gerçek harekette çağrılır: şekle tıklayıp
+    // bırakmak geçmişe boş bir adım eklemesin, Ctrl+Z ilk basışta çalışsın.
+    bool editRecorded = false;
+    // Tekerlek artığı: hassas dokunmatik yüzeyler 120'den küçük adımlar
+    // gönderir; biriktirilmezse tam sayı bölmesi hepsini sıfıra yuvarlar.
+    int wheelRemainder = 0;
 
     // Renk seçicide gösterilen "son kullanılanlar". Oturum boyunca yaşar;
     // diske yazılmaz, çünkü tek bir düzenleme oturumundan sonrasına taşınacak
@@ -244,7 +256,6 @@ inline constexpr UINT_PTR kTooltipTimer = 1;
 inline constexpr UINT_PTR kFlashTimer = 2;
 inline constexpr UINT_PTR kCaretTimer = 3;
 
-[[nodiscard]] int Scale(int value, unsigned dpi) noexcept;
 
 // Araç çubuğunun tüm düğmeleri için gereken en küçük genişlik.
 // SABİT BİR SAYI DEĞİL: araç ya da grup eklendiğinde elle güncellenmesi
@@ -261,9 +272,7 @@ LRESULT CALLBACK EditorProc(HWND window, UINT message, WPARAM wParam,
                             LPARAM lParam);
 
 // --- Araç çubuğu çizimi (EditorChrome.cpp) ----------------------------------
-void FillRectColor(HDC dc, const RECT& r, COLORREF color);
 void FrameRectColor(HDC dc, const RECT& r, int thickness, COLORREF color);
-[[nodiscard]] HFONT CreateUiFont(unsigned dpi, int points, int weight);
 [[nodiscard]] bool IsSelected(const State& state, const Button& button) noexcept;
 void DrawButtonBackground(AlphaLayer& layer, const State& state,
                           const Button& button, bool selected, bool hovered);
@@ -296,6 +305,9 @@ void OpenThicknessPicker(HWND window, State& state, const Button& button);
 // Şekilleri tabana pişirip yeni tabanı belgeye verir; kırpma, döndürme,
 // çevirme ve renk ayarları bundan geçer.
 void BakeAndReplace(State& state, Image&& newBase);
+// OCR kipini kapatır; görüntüyü değiştiren her işlemden sonra çağrılır, çünkü
+// kelime kutuları eski görüntünün koordinatlarındadır.
+void LeaveOcrMode(State& state) noexcept;
 void DropScaleSource(State& state) noexcept;
 
 // --- Görüntü efektleri (EditorEffects.cpp) -----------------------------------
@@ -317,6 +329,9 @@ void OpenDroppedImage(HWND window, State& state, const std::wstring& path);
 [[nodiscard]] geom::Grab ShapeHandleAt(const State& state, POINT client) noexcept;
 
 // İmlecin altındaki tutamağa uyan imleç; tutamak yoksa nullptr.
+// İmleç TEK YERDE seçilir ve WM_SETCURSOR'dan döner. WM_MOUSEMOVE'da da
+// SetCursor çağırmak, her harekette sınıf imleciyle bizimkinin sırayla
+// görünmesi (titreme) demekti. Tutamak, OCR, kaydırma, tuval, ok sırasıyla.
 [[nodiscard]] HCURSOR SelectCursor(HWND window, const State& state);
 
 // Araç seçer ve arayüzü tazeler (EditorKeys.cpp).
@@ -331,7 +346,11 @@ void PickTool(HWND window, State& state, ToolKind tool);
 // Seçili şekli siler; sildiyse true döner.
 bool DeleteSelectedShape(HWND window, State& state);
 // Seçili şeklin rengini/kalınlığını geçerli ayara çeker.
-void RestyleSelectedShape(State& state);
+// Seçili şeklin YALNIZCA değişen özelliğini günceller. Üçünü birden yazmak,
+// dolguyu açan kullanıcının şeklin rengini ve kalınlığını da araç çubuğundaki
+// değerlere çevirmesi demekti.
+enum class RestyleField { Color, Thickness, Fill };
+void RestyleSelectedShape(State& state, RestyleField field);
 // Seçili şeklin çerçevesini ve tutamaklarını çizer.
 void DrawSelectionFrame(HDC dc, const State& state);
 void BeginDraw(HWND window, State& state, POINT client);

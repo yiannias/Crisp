@@ -168,9 +168,10 @@ bool SelectMouseDown(HWND window, State& state, POINT client) {
     if (const geom::Grab handle = ShapeHandleAt(state, client);
         handle != geom::Grab::None) {
         const std::vector<Shape>& shapes = state.document.Shapes();
-        state.document.BeginEdit();
         state.shapeGrab = handle;
-        state.shapeOrigin = shapes[static_cast<size_t>(state.selected)].Bounds();
+        state.shapeOriginal = shapes[static_cast<size_t>(state.selected)];
+        state.shapeOrigin = state.shapeOriginal.Bounds();
+        state.editRecorded = false;
         ::SetCapture(window);
         Refresh(window, state);
         return true;
@@ -179,17 +180,32 @@ bool SelectMouseDown(HWND window, State& state, POINT client) {
     const POINT image = ToImage(state, client);
     state.selected = ShapeAtPoint(state, image);
     if (state.selected >= 0) {
-        // GEÇMİŞE ADIM ŞİMDİ EKLENİR, her fare hareketinde değil: taşımanın
-        // altmış karesi geçmişe girseydi tek bir hareket geçmişin tamamını
+        // GEÇMİŞE ADIM İLK HAREKETTE EKLENİR, basışta ya da her karede değil:
+        // basışta eklemek şekle yalnızca tıklayan kullanıcıya boş bir geri
+        // alma adımı bırakırdı; her karede eklemek tek bir taşımayla geçmişi
         // doldururdu.
-        state.document.BeginEdit();
         state.movingShape = true;
         state.moveGrab = image;
+        state.editRecorded = false;
         ::SetCapture(window);
     }
     Refresh(window, state);
     return true;
 }
+
+namespace {
+
+// Sürüklemenin ilk gerçek hareketinde geçmişe adım ekler ve şekil işaretçisini
+// yeniden okur (BeginEdit listeyi kopyalar; işaretçi bayatlayabilir).
+[[nodiscard]] Shape* RecordEditOnce(State& state) {
+    if (!state.editRecorded) {
+        state.document.BeginEdit();
+        state.editRecorded = true;
+    }
+    return state.document.ShapeAt(static_cast<size_t>(state.selected));
+}
+
+}  // namespace
 
 bool SelectMouseMove(HWND window, State& state, POINT client) {
     if (state.shapeGrab != geom::Grab::None && state.selected >= 0) {
@@ -212,10 +228,17 @@ bool SelectMouseMove(HWND window, State& state, POINT client) {
             geom::ResizeByGrab(state.shapeOrigin, state.shapeGrab,
                                ToImage(state, client), 8, canvas);
 
-        // ORANLAMA HER SEFERİNDE BAŞLANGIÇ SINIRINDAN YAPILIR. Şeklin o anki
-        // sınırından ölçeklemek, yuvarlama hatalarını üst üste bindirir ve
-        // sürükleme uzadıkça şekil kayardı.
-        shape->ScaleTo(shape->Bounds(), resized);
+        // ORANLAMA HER SEFERİNDE BAŞLANGIÇTAKİ ŞEKİLDEN YAPILIR. O anki hâlden
+        // ölçeklemek yuvarlama hatalarını üst üste bindirir; uç noktalar
+        // sınırları tanımladığı için yerinde kalır ama serbest çizimin iç
+        // noktaları sürükleme uzadıkça kayardı.
+        shape = RecordEditOnce(state);
+        if (shape == nullptr) {
+            state.shapeGrab = geom::Grab::None;
+            return false;
+        }
+        *shape = state.shapeOriginal;
+        shape->ScaleTo(state.shapeOrigin, resized);
         Rebuild(state);
         ::InvalidateRect(window, nullptr, FALSE);
         return true;
@@ -225,7 +248,10 @@ bool SelectMouseMove(HWND window, State& state, POINT client) {
         return false;
     }
     const POINT image = ToImage(state, client);
-    Shape* shape = state.document.ShapeAt(static_cast<size_t>(state.selected));
+    if (image.x == state.moveGrab.x && image.y == state.moveGrab.y) {
+        return true;   // hareket yok: geçmişe adım da yok
+    }
+    Shape* shape = RecordEditOnce(state);
     if (shape == nullptr) {
         state.movingShape = false;
         return false;
@@ -239,6 +265,7 @@ bool SelectMouseMove(HWND window, State& state, POINT client) {
 }
 
 bool SelectMouseUp(HWND window, State& state) {
+    state.editRecorded = false;
     if (state.shapeGrab != geom::Grab::None) {
         state.shapeGrab = geom::Grab::None;
         if (::GetCapture() == window) {
@@ -272,7 +299,7 @@ bool DeleteSelectedShape(HWND window, State& state) {
     return true;
 }
 
-void RestyleSelectedShape(State& state) {
+void RestyleSelectedShape(State& state, RestyleField field) {
     if (state.selected < 0) {
         return;
     }
@@ -287,9 +314,11 @@ void RestyleSelectedShape(State& state) {
     if (shape == nullptr) {
         return;
     }
-    shape->color = state.color;
-    shape->thickness = state.thickness;
-    shape->filled = state.fillShapes;
+    switch (field) {
+        case RestyleField::Color:     shape->color = state.color; break;
+        case RestyleField::Thickness: shape->thickness = state.thickness; break;
+        case RestyleField::Fill:      shape->filled = state.fillShapes; break;
+    }
     Rebuild(state);
 }
 
@@ -312,8 +341,18 @@ HCURSOR SelectCursor(HWND window, const State& state) {
         case geom::Grab::S:  return ::LoadCursorW(nullptr, IDC_SIZENS);
         case geom::Grab::E:
         case geom::Grab::W:  return ::LoadCursorW(nullptr, IDC_SIZEWE);
-        default:             return nullptr;
+        default:             break;
     }
+
+    if (state.panning) {
+        return ::LoadCursorW(nullptr, IDC_SIZEALL);
+    }
+    const bool overCanvas = ::PtInRect(&state.canvas, cursor) != FALSE;
+    if (state.ocr.active) {
+        return ::LoadCursorW(nullptr,
+                             (overCanvas || state.ocr.selecting) ? IDC_IBEAM : IDC_ARROW);
+    }
+    return ::LoadCursorW(nullptr, overCanvas ? IDC_CROSS : IDC_ARROW);
 }
 
 void DrawSelectionFrame(HDC dc, const State& state) {

@@ -116,12 +116,11 @@ bool OcrMouseMove(HWND window, State& state, POINT client) {
             state.ocr.cursor = word;
             Redraw(window);
         }
-        ::SetCursor(::LoadCursorW(nullptr, IDC_IBEAM));
         return true;
     }
 
-    const bool overCanvas = ::PtInRect(&state.canvas, client) != FALSE;
-    ::SetCursor(::LoadCursorW(nullptr, overCanvas ? IDC_IBEAM : IDC_ARROW));
+    // İmleç WM_SETCURSOR'da seçilir (SelectCursor); burada SetCursor çağırmak
+    // sınıf imleciyle sırayla görünmesine yol açıyordu.
     return true;
 }
 

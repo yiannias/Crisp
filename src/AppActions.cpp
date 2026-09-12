@@ -35,8 +35,6 @@
 namespace crisp {
 namespace {
 
-// Tepsi menüsünün kapanmasını beklemek için; gerekçesi AppCapture.cpp'de.
-constexpr DWORD kMenuSettleMs = 120;
 
 // Öne alınan pencerenin kendini yeniden çizmesi için. Daha kısası, animasyonlu
 // bir pencerede yarı saydam bir kare yakalıyordu.
@@ -235,8 +233,12 @@ void App::CaptureActiveWindow() {
         LogV(L"Aktif pencere yakalanamadı");
         return;
     }
+    // Yakalama DWM çerçeve sınırını kullanıyor; iğnenin kökeni de aynı
+    // sınırdan gelmeli, yoksa görünmez kenarlık kadar (7-8 px) kayardı.
     RECT bounds{};
-    (void)::GetWindowRect(window, &bounds);
+    if (!WindowFrameBounds(window, bounds)) {
+        (void)::GetWindowRect(window, &bounds);
+    }
     DeliverCapture(capture, POINT{bounds.left, bounds.top}, window);
 }
 
@@ -271,7 +273,8 @@ void App::CaptureScrolling() {
     if (m_busy) {
         return;
     }
-    m_busy = true;
+    // Kaplama, toplama döngüsü ve olası düzenleyici: hepsi bu kapsamda.
+    const BusyScope busy{m_busy};
     ::Sleep(kMenuSettleMs);
 
     // ALAN NORMAL KAPLAMAYLA SEÇİLİR. Kaydırmalı yakalamaya özel bir seçim
@@ -280,8 +283,8 @@ void App::CaptureScrolling() {
     // yakalamanın burada karşılığı yok, kaydırılacak bir alan gerekiyor.
     Image frozen;
     const OverlayResult chosen = RunSelectionOverlay(
-        m_instance, m_settings, OverlayMode::Region, false, frozen);
-    m_busy = false;
+        m_instance, m_settings, OverlayMode::Region, false, frozen, nullptr,
+        /*showActionBar=*/false);
 
     if (!chosen.accepted || geom::IsEmpty(chosen.selection)) {
         return;
@@ -310,12 +313,9 @@ void App::CaptureScrolling() {
     const ScrollCaptureOptions options;
     LogV(L"Kaydırmalı yakalama başlıyor: %ldx%ld",
          geom::Width(chosen.selection), geom::Height(chosen.selection));
-    // MEŞGUL BAYRAĞI DÖNGÜ BOYUNCA KURULU KALIR. Toplama sırasında mesaj
-    // kuyruğu boşaltılıyor (bildirim görünsün diye) ve o sırada gelen bir
-    // kısayol ikinci bir yakalama başlatabilirdi.
-    m_busy = true;
+    // Toplama sırasında mesaj kuyruğu boşaltılıyor (bildirim görünsün diye);
+    // meşgul bayrağı yukarıdaki kapsam sayesinde kurulu.
     const bool collected = CollectScrollFrames(chosen.selection, options, frames);
-    m_busy = false;
 
     Image stitched;
     size_t used = 0;
@@ -352,6 +352,10 @@ void App::CaptureScrolling() {
 }
 
 void App::OpenClipboardImage() {
+    if (m_busy) {
+        return;
+    }
+    const BusyScope busy{m_busy};
     Image image;
     if (!ReadImageFromClipboard(image, m_window)) {
         return;
@@ -379,6 +383,11 @@ void App::OpenImageFile(const std::wstring& path) {
             }
         }
     } guard{m_exitAfterFile, m_window};
+
+    if (m_busy) {
+        return;   // kaplama ya da düzenleyici açık; ikinci bir düzenleyici olmaz
+    }
+    const BusyScope busy{m_busy};
 
     Image image;
     if (!LoadImageFile(path, image)) {

@@ -12,30 +12,11 @@
 namespace crisp {
 namespace editor {
 
-void FillRectColor(HDC dc, const RECT& r, COLORREF color) {
-    const HBRUSH brush = ::CreateSolidBrush(color);
-    if (brush == nullptr) {
-        return;
-    }
-    ::FillRect(dc, &r, brush);
-    ::DeleteObject(brush);
-}
-
 void FrameRectColor(HDC dc, const RECT& r, int thickness, COLORREF color) {
     FillRectColor(dc, RECT{r.left, r.top, r.right, r.top + thickness}, color);
     FillRectColor(dc, RECT{r.left, r.bottom - thickness, r.right, r.bottom}, color);
     FillRectColor(dc, RECT{r.left, r.top, r.left + thickness, r.bottom}, color);
     FillRectColor(dc, RECT{r.right - thickness, r.top, r.right, r.bottom}, color);
-}
-
-HFONT CreateUiFont(unsigned dpi, int points, int weight) {
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(points, static_cast<int>(dpi), 72);
-    font.lfWeight = weight;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    return ::CreateFontIndirectW(&font);
 }
 
 namespace {

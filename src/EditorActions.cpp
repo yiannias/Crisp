@@ -35,7 +35,18 @@ void BakeAndReplace(State& state, Image&& newBase) {
     auto shared = std::make_shared<Image>();
     *shared = std::move(newBase);
     state.document.ApplyImageOp(shared);
+    LeaveOcrMode(state);
     Rebuild(state);
+}
+
+// OCR yerleşimi, tanıma anındaki görüntünün koordinatlarındadır. Görüntüyü
+// değiştiren her işlem (döndürme, ölçek, geri alma...) kutuları yanlış
+// piksellerin üstünde bırakır; kip kapatılır, kullanıcı isterse yeniden tarar.
+void LeaveOcrMode(State& state) noexcept {
+    if (state.ocr.active) {
+        state.ocr.active = false;
+        state.ocr.Clear();
+    }
 }
 
 namespace {
@@ -176,7 +187,7 @@ void OpenColorPicker(HWND window, State& state, const Button& button) {
         }
         // SEÇİLİ ŞEKİL DE: renk düğmesine basan kullanıcı, seçtiği okun
         // rengini değiştirmek istiyordur.
-        RestyleSelectedShape(state);
+        RestyleSelectedShape(state, RestyleField::Color);
     }
     Refresh(window, state);
 }
@@ -189,7 +200,7 @@ void OpenThicknessPicker(HWND window, State& state, const Button& button) {
         if (state.typing) {
             state.textDraft.thickness = chosen;
         }
-        RestyleSelectedShape(state);
+        RestyleSelectedShape(state, RestyleField::Thickness);
     }
     Refresh(window, state);
 }
@@ -240,23 +251,26 @@ void ApplyAction(HWND window, State& state, int action) {
             // SEÇİLİ ŞEKİL DE DEĞİŞİR: dolgu düğmesine basan kullanıcı,
             // seçtiği şeklin dolgusunu değiştirmek istiyordur; yalnızca
             // bundan sonrakileri etkilemesi şaşırtıcı olurdu.
-            RestyleSelectedShape(state);
+            RestyleSelectedShape(state, RestyleField::Fill);
             break;
         case kActionUndo:
             if (state.document.Undo()) {
                 DropScaleSource(state);
+                LeaveOcrMode(state);
                 Rebuild(state);
             }
             break;
         case kActionRedo:
             if (state.document.Redo()) {
                 DropScaleSource(state);
+                LeaveOcrMode(state);
                 Rebuild(state);
             }
             break;
         case kActionClear:
             state.document.Clear();
             DropScaleSource(state);
+            LeaveOcrMode(state);
             Rebuild(state);
             break;
         // ÜÇÜ DE PENCEREYİ KAPATMAZ: kullanıcı kopyaladıktan sonra çizmeye
@@ -275,7 +289,9 @@ void ApplyAction(HWND window, State& state, int action) {
             return;
         case kActionSettings:
             if (ShowSettingsWindow(state.instance, state.settings)) {
-                state.settings.Save(SettingsStore::ForApp());
+                if (!state.settings.Save(SettingsStore::ForApp())) {
+                    LogV(L"Ayarlar düzenleyiciden kaydedilemedi");
+                }
                 Refresh(window, state);
             }
             return;

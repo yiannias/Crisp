@@ -31,10 +31,6 @@
 namespace crisp {
 namespace {
 
-// Kaplama açılmadan önce kısa bir bekleme. Kullanıcı tepsi menüsünden
-// tetiklediyse menü daha kapanmamış olabilir ve dondurulmuş ekranda menünün
-// kendisi görünürdü.
-constexpr DWORD kMenuSettleMs = 120;
 
 void PlayShutter() {
     // TAMPON ÇALMA BİTENE KADAR YAŞAMALI: SND_ASYNC ile PlaySound hemen döner
@@ -64,16 +60,20 @@ bool RunRegionCapture(HINSTANCE instance, const Settings& settings,
                       bool preferWindowPick, Image& out, POINT& origin) {
     RECT selection{};
     OverlayAction action = OverlayAction::None;
+    // Bu çağıran eylemi ATIYOR: çubuk gösterilmez, yoksa "kaydet"e basan
+    // kullanıcı sessizce başka bir sonuç alırdı.
     return RunRegionCaptureRect(instance, settings, preferWindowPick, out, origin,
-                                selection, action);
+                                selection, action, /*showActionBar=*/false);
 }
 
 bool RunRegionCaptureRect(HINSTANCE instance, const Settings& settings,
                           bool preferWindowPick, Image& out, POINT& origin,
-                          RECT& selection, OverlayAction& action) {
+                          RECT& selection, OverlayAction& action,
+                          bool showActionBar) {
     Image frozen;
     const OverlayResult result = RunSelectionOverlay(
-        instance, settings, OverlayMode::Region, preferWindowPick, frozen);
+        instance, settings, OverlayMode::Region, preferWindowPick, frozen, nullptr,
+        showActionBar);
 
     if (!result.accepted || !frozen.Valid()) {
         return false;
@@ -399,9 +399,8 @@ void App::ShowHistory() {
     if (m_busy) {
         return;
     }
-    m_busy = true;
+    const BusyScope busy{m_busy};   // düzenleyici de bu kapsamda açılıyor
     HistoryResult chosen = ShowHistoryWindow(m_instance, m_history);
-    m_busy = false;
 
     if (chosen.choice != HistoryChoice::Edit || !chosen.image.Valid()) {
         return;

@@ -21,18 +21,20 @@ namespace {
 // Yeni bir yakalama başlatılmasına karşı koruma çağıranda: `m_busy` bu döngü
 // boyunca kurulu kalıyor.
 void SleepPumping(unsigned milliseconds) {
-    const DWORD deadline = ::GetTickCount() + milliseconds;
+    // 64 bit sayaç: 32 bitlik GetTickCount 49,7 günde bir sarar ve sarma
+    // anında deadline geçmişe düşer, bekleme sıfıra iner.
+    const ULONGLONG deadline = ::GetTickCount64() + milliseconds;
     for (;;) {
         MSG message{};
         while (::PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
             ::TranslateMessage(&message);
             ::DispatchMessageW(&message);
         }
-        const DWORD now = ::GetTickCount();
+        const ULONGLONG now = ::GetTickCount64();
         if (now >= deadline) {
             return;
         }
-        const DWORD remaining = deadline - now;
+        const DWORD remaining = static_cast<DWORD>(deadline - now);
         ::MsgWaitForMultipleObjects(0, nullptr, FALSE, remaining, QS_ALLINPUT);
     }
 }

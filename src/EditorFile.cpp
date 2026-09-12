@@ -136,9 +136,11 @@ void SaveAsDialog(HWND window, State& state) {
     }
     filter.push_back(L'\0');
 
-    wchar_t path[MAX_PATH] = L"";
+    // UZUN YOL TAMPONU: MAX_PATH'ten uzun bir hedef seçildiğinde iletişim
+    // kutusu FNERR_BUFFERTOOSMALL ile döner ve bu, iptal sanılırdı.
+    std::wstring path(32768, L'\0');
     const std::wstring suggestion = L"Crisp " + TimestampForFileName() + L".png";
-    ::wcscpy_s(path, suggestion.c_str());
+    ::wcscpy_s(path.data(), path.size(), suggestion.c_str());
 
     const std::wstring folder = state.settings.EffectiveSaveFolder();
 
@@ -147,8 +149,8 @@ void SaveAsDialog(HWND window, State& state) {
     dialog.hwndOwner = window;
     dialog.lpstrFilter = filter.c_str();
     dialog.nFilterIndex = 1;
-    dialog.lpstrFile = path;
-    dialog.nMaxFile = static_cast<DWORD>(std::size(path));
+    dialog.lpstrFile = path.data();
+    dialog.nMaxFile = static_cast<DWORD>(path.size());
     dialog.lpstrInitialDir = folder.empty() ? nullptr : folder.c_str();
     dialog.lpstrDefExt = L"png";
     dialog.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_EXPLORER |

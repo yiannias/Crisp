@@ -25,10 +25,6 @@ constexpr const wchar_t* kWindowClass = L"CrispHistoryWindow";
 constexpr int kWidth = 780;
 constexpr int kHeight = 540;
 
-// Bağlam menüsü komutları. Kaynak kimlikleriyle çakışmamaları için yerel ve
-// küçük tutulur; menü TPM_RETURNCMD ile okunduğu için dışarı sızmazlar.
-enum MenuId { kMenuEdit = 1, kMenuCopy, kMenuReveal, kMenuDelete, kMenuClear };
-
 // Aynı anda tek geçmiş penceresi; ikinci çağrı var olanı öne getirir.
 HWND g_open = nullptr;
 
@@ -109,9 +105,12 @@ LRESULT CALLBACK HistoryProc(HWND window, UINT message, WPARAM wParam,
             if (state == nullptr) {
                 break;
             }
-            const int notches = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+            // Hassas dokunmatik yüzeyler 120'den küçük adımlar gönderir; tam
+            // sayı bölmesi onları sıfıra yuvarlar ve kaydırma hiç çalışmazdı.
+            const int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            const int step = Scale(kTileHeight / 2, state->dpi);
             OnScroll(window, *state,
-                     state->scroll - notches * Scale(kTileHeight / 2, state->dpi));
+                     state->scroll - ::MulDiv(delta, step, WHEEL_DELTA));
             return 0;
         }
 
@@ -125,6 +124,9 @@ LRESULT CALLBACK HistoryProc(HWND window, UINT message, WPARAM wParam,
                 state->hovered = hit;
                 ::InvalidateRect(window, nullptr, FALSE);
             }
+            // WM_MOUSELEAVE İSTENMEDEN GELMEZ: fare pencereden çıkınca son
+            // kartın vurgusu asılı kalıyordu.
+            TrackMouseLeave(window);
             return 0;
         }
 
@@ -274,8 +276,8 @@ HistoryResult ShowHistoryWindow(HINSTANCE instance, HistoryStore& store) {
     }
     state.dpi = dpiX;
 
-    const int width = history::Scale(history::kWidth, state.dpi);
-    const int height = history::Scale(history::kHeight, state.dpi);
+    const int width = Scale(history::kWidth, state.dpi);
+    const int height = Scale(history::kHeight, state.dpi);
     const int x = work.left + (static_cast<int>(geom::Width(work)) - width) / 2;
     const int y = work.top + (static_cast<int>(geom::Height(work)) - height) / 2;
 

@@ -11,31 +11,13 @@
 #include "Util.h"
 #include "resource.h"
 
+#include <algorithm>
 #include <string>
 
 namespace crisp {
 namespace about {
 namespace {
 
-
-[[nodiscard]] HFONT CreateUiFont(unsigned dpi, int pointSize, int weight) {
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(pointSize, static_cast<int>(dpi), 72);
-    font.lfWeight = weight;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    return ::CreateFontIndirectW(&font);
-}
-
-void FillRectColor(HDC dc, const RECT& r, COLORREF color) {
-    const HBRUSH brush = ::CreateSolidBrush(color);
-    if (brush == nullptr) {
-        return;
-    }
-    ::FillRect(dc, &r, brush);
-    ::DeleteObject(brush);
-}
 
 void DrawFrame(HDC dc, const RECT& r, int thickness, COLORREF color) {
     FillRectColor(dc, RECT{r.left, r.top, r.right, r.top + thickness}, color);
@@ -112,10 +94,9 @@ void Paint(HWND window, AboutState& state) {
 
     // Açıklama, simgenin altından tam genişlikte devam eder: iki sütun
     // hizasını korumak için sol kenar simgeyle aynı yerden başlar.
-    y = pad + iconSide + Scale(18, dpi);
-    if (y < pad + iconSide) {
-        y = pad + iconSide + Scale(18, dpi);
-    }
+    // Sağ sütun simgeden uzunsa (tanıtım metni üç satıra sarınca) oradan
+    // devam edilir; kısaysa simgenin altından.
+    y = (std::max)(y, pad + iconSide) + Scale(18, dpi);
     const int fullWidth = geom::Width(client) - pad * 2;
     y += DrawLine(memory, Loc::Str(IDS_ABOUT_BODY), pad, y, fullWidth, fontBody,
                   colors.textDim);

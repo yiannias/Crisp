@@ -5,6 +5,8 @@
 // aşıyordu (docs §9).
 #pragma once
 
+#include "UiCommon.h"
+
 #include "AlphaLayer.h"
 #include "Capture.h"
 #include "ColorSpace.h"
@@ -119,7 +121,6 @@ struct State {
     AlphaLayer chrome;
 };
 
-[[nodiscard]] int Scale(int value, unsigned dpi) noexcept;
 void BuildMetrics(State& state);
 
 // Fare noktasının hangi bölgeye düştüğü. Preset/Recent için `index` doldurulur.

@@ -3,6 +3,7 @@
 // AYRI DOSYA: mesaj yordamıyla aynı dosyada EditorInput.cpp 400 satırı
 // aşıyordu (docs §9).
 #include "EditorInternal.h"
+#include "UiCommon.h"
 
 #include "Capture.h"
 #include "Geometry.h"
@@ -108,6 +109,7 @@ EditorResult RunEditor(HINSTANCE instance, Settings& settings, Image& image) {
         nullptr, nullptr, instance, &state);
     if (window == nullptr) {
         LogV(L"Düzenleyici penceresi oluşturulamadı (hata %lu)", ::GetLastError());
+        DiscardPendingQuit();   // gerekçesi UiCommon.h'de
         return result;
     }
 

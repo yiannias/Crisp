@@ -23,8 +23,12 @@ namespace {
 // KAYAN TOPLAM: her piksel için pencereyi baştan toplamak O(n·r) olurdu ve
 // 40 piksellik bir yarıçapta gözle görülür şekilde yavaşlar. Pencereden çıkanı
 // çıkarıp gireni eklemek onu O(n) yapar.
-void BlurAxis(const Image& source, Image& target, const RECT& area, int radius,
-              bool horizontal) {
+//
+// `area` görüntü koordinatındadır; `sourceOrigin`/`targetOrigin`, o alanın
+// kaynak ve hedef tamponlarda hangi köşeden başladığını söyler. Böylece ara
+// tampon bütün görüntü değil, yalnızca bulanıklaştırılan bölge kadar olur.
+void BlurAxis(const Image& source, POINT sourceOrigin, Image& target,
+              POINT targetOrigin, const RECT& area, int radius, bool horizontal) {
     const int width = geom::Width(area);
     const int height = geom::Height(area);
     if (width <= 0 || height <= 0) {
@@ -33,6 +37,10 @@ void BlurAxis(const Image& source, Image& target, const RECT& area, int radius,
 
     const int outerCount = horizontal ? height : width;
     const int innerCount = horizontal ? width : height;
+    const int sx = sourceOrigin.x - area.left;
+    const int sy = sourceOrigin.y - area.top;
+    const int tx = targetOrigin.x - area.left;
+    const int ty = targetOrigin.y - area.top;
 
     for (int outer = 0; outer < outerCount; ++outer) {
         int sumB = 0;
@@ -43,7 +51,7 @@ void BlurAxis(const Image& source, Image& target, const RECT& area, int radius,
         auto pixelAt = [&](int inner) -> uint32_t {
             const int x = horizontal ? area.left + inner : area.left + outer;
             const int y = horizontal ? area.top + outer : area.top + inner;
-            return source.Pixel(x, y);
+            return source.Pixel(x + sx, y + sy);
         };
 
         // Başlangıç penceresi: [0, radius]
@@ -61,8 +69,8 @@ void BlurAxis(const Image& source, Image& target, const RECT& area, int radius,
 
             // Alfa KORUNUR: yakalamalar opaktır ama kullanıcı saydam bir
             // görüntüyü de düzenleyebilir ve bulanıklık şeffaflığı yemez.
-            const uint32_t alpha = source.Pixel(x, y) & 0xFF000000u;
-            target.SetPixel(x, y,
+            const uint32_t alpha = source.Pixel(x + sx, y + sy) & 0xFF000000u;
+            target.SetPixel(x + tx, y + ty,
                             alpha |
                                 (static_cast<uint32_t>(sumR / count) << 16) |
                                 (static_cast<uint32_t>(sumG / count) << 8) |
@@ -100,13 +108,19 @@ void BlurRegion(Image& image, const RECT& area, int radius) {
     // İKİ GEÇİŞ AYRI TAMPON İSTER: yatay geçişin çıktısını kaynağın üstüne
     // yazarsak dikey geçiş kısmen bulanıklaştırılmış pikselleri okur ve sonuç
     // köşegen bir bulaşmaya döner.
+    //
+    // ARA TAMPON YALNIZCA BÖLGE KADAR: bütün görüntüyü kopyalamak, 4K bir
+    // yakalamada 20 piksellik bir bulanıklık için 33 MB ayırmak demekti — ve
+    // düzenleyici her yeniden çizimde her bulanıklık şeklini baştan uygular.
     Image scratch;
-    if (!CropImage(image, 0, 0, image.Width(), image.Height(), scratch)) {
+    if (!scratch.Create(geom::Width(clipped), geom::Height(clipped))) {
         return;
     }
 
-    BlurAxis(image, scratch, clipped, radius, true);
-    BlurAxis(scratch, image, clipped, radius, false);
+    const POINT imageOrigin{clipped.left, clipped.top};
+    const POINT scratchOrigin{0, 0};
+    BlurAxis(image, imageOrigin, scratch, scratchOrigin, clipped, radius, true);
+    BlurAxis(scratch, scratchOrigin, image, imageOrigin, clipped, radius, false);
 }
 
 void MosaicRegion(Image& image, const RECT& area, int block) {

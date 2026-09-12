@@ -171,6 +171,12 @@ bool StitchVertical(const std::vector<Image>& frames, int minOverlap, Image& out
         if (shift <= 0) {
             break;   // eşleşme yok: burada bitiyoruz
         }
+        // Image::Create tek kenarı kMaxImageSide ile sınırlar; sınırı aşan bir
+        // kare eklemek bütün birleştirmeyi düşürürdü. O kareden önce durulur
+        // ve elde olan kadarı teslim edilir.
+        if (total + shift > kMaxImageSide) {
+            break;
+        }
         shifts.push_back(shift);
         total += shift;
         ++used;

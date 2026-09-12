@@ -2,6 +2,7 @@
 #include "Capture.h"
 
 #include "Geometry.h"
+#include "WindowPick.h"
 
 #include <dwmapi.h>
 
@@ -115,7 +116,7 @@ bool Image::Create(int width, int height) {
     }
     // 4 bayt/piksel çarpımının taşmaması gerekir; 32767 kenar, 4 GB'lık bir
     // görüntüden çok daha küçük ve gerçek ekranların çok üstünde.
-    if (width > 32767 || height > 32767) {
+    if (width > kMaxImageSide || height > kMaxImageSide) {
         return false;
     }
 
@@ -310,16 +311,12 @@ bool CaptureWindow(HWND window, Image& out, bool includeCursor) {
         return false;
     }
 
+    // DWM sınırı görünür çerçevedir; başarısızlıkta GetWindowRect'e düşer.
+    // Tek kopya WindowPick'te — pencere seçici ve yakalama aynı sınırı
+    // görmeli, yoksa vurgulanan çerçeve ile kesilen görüntü ayrışır.
     RECT bounds{};
-    // DWM sınırı görünür çerçevedir. Başarısız olursa (DWM kapalı, klasik tema)
-    // GetWindowRect'e düşülür: birkaç piksel fazla kenarlık, hiç yakalamamaktan
-    // iyidir.
-    const HRESULT hr = ::DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS,
-                                               &bounds, sizeof(bounds));
-    if (FAILED(hr) || geom::IsEmpty(bounds)) {
-        if (!::GetWindowRect(window, &bounds)) {
-            return false;
-        }
+    if (!WindowFrameBounds(window, bounds)) {
+        return false;
     }
 
     // Pencere ekran dışına taşabilir; taşan kısımda ekranda piksel yoktur ve

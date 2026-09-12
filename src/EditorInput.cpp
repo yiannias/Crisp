@@ -112,6 +112,13 @@ LRESULT CALLBACK EditorProc(HWND window, UINT message, WPARAM wParam,
         case WM_MOUSELEAVE:
             if (state != nullptr) {
                 HideTooltip(window, *state);
+                // Vurgu ve durum çubuğundaki koordinat da gitmeli; aksi hâlde
+                // fare pencereden çıkınca son düğme aydınlık kalırdı.
+                if (state->hoverButton != -1 || state->hoverImage.x != -1) {
+                    state->hoverButton = -1;
+                    state->hoverImage = POINT{-1, -1};
+                    ::InvalidateRect(window, nullptr, FALSE);
+                }
             }
             return 0;
 
@@ -124,8 +131,13 @@ LRESULT CALLBACK EditorProc(HWND window, UINT message, WPARAM wParam,
             }
             POINT cursor{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
             ::ScreenToClient(window, &cursor);
-            const int notches = GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+            // BİRİKTİRİLİR: hassas dokunmatik yüzeyler 120'den küçük adımlar
+            // gönderir ve tam sayı bölmesi onları sıfıra yuvarlayıp
+            // yakınlaştırmayı hiç çalıştırmazdı.
+            state->wheelRemainder += GET_WHEEL_DELTA_WPARAM(wParam);
+            const int notches = state->wheelRemainder / WHEEL_DELTA;
             if (notches != 0) {
+                state->wheelRemainder -= notches * WHEEL_DELTA;
                 ZoomAt(window, *state, notches > 0 ? 1.15 : (1.0 / 1.15), cursor);
             }
             return 0;
@@ -137,11 +149,7 @@ LRESULT CALLBACK EditorProc(HWND window, UINT message, WPARAM wParam,
             if (state == nullptr || LOWORD(lParam) != HTCLIENT) {
                 break;
             }
-            const HCURSOR shape = SelectCursor(window, *state);
-            if (shape == nullptr) {
-                break;
-            }
-            ::SetCursor(shape);
+            ::SetCursor(SelectCursor(window, *state));
             return TRUE;
         }
 
@@ -184,7 +192,6 @@ LRESULT CALLBACK EditorProc(HWND window, UINT message, WPARAM wParam,
                 RECT area{};
                 ::GetClientRect(window, &area);
                 LayoutCanvas(*state, area);
-                ::SetCursor(::LoadCursorW(nullptr, IDC_SIZEALL));
                 ::InvalidateRect(window, nullptr, FALSE);
                 return 0;
             }
@@ -224,8 +231,6 @@ LRESULT CALLBACK EditorProc(HWND window, UINT message, WPARAM wParam,
             if (hover < 0 && OcrMouseMove(window, *state, client)) {
                 return 0;
             }
-            ::SetCursor(::LoadCursorW(
-                nullptr, ::PtInRect(&state->canvas, client) ? IDC_CROSS : IDC_ARROW));
             return 0;
         }
 

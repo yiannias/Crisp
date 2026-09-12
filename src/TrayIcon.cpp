@@ -127,7 +127,15 @@ bool TrayIcon::Add(HWND owner, HINSTANCE instance) {
         return false;
     }
 
-    m_added = ::Shell_NotifyIconW(NIM_ADD, &data) != FALSE;
+    // OTURUM AÇILIŞINDA KABUK GEÇ CEVAP VEREBİLİR: NIM_ADD zaman aşımıyla
+    // düşer ve tek denemeyle uygulama "başlatılamadı" deyip kapanırdı. Birkaç
+    // kısa deneme, kabuğun toparlanmasına yeter.
+    for (int attempt = 0; attempt < 5 && !m_added; ++attempt) {
+        if (attempt > 0) {
+            ::Sleep(500);
+        }
+        m_added = ::Shell_NotifyIconW(NIM_ADD, &data) != FALSE;
+    }
     if (m_added) {
         // NOTIFYICON_VERSION_4: geri bildirim mesajlarında imleç konumu
         // lParam yerine wParam'da gelir ve çok monitörde doğrudur.
@@ -195,69 +203,85 @@ int TrayIcon::ShowMenu(HWND owner) {
 
     // Metinler her açılışta yeniden okunur: dil ayarı değiştiğinde menünün
     // eski dilde kalmaması için önbelleğe alınmazlar.
-    auto add = [this, menu](UINT command, UINT textId, UINT acceleratorId) {
+    // Menü komutu → kısayol eylemi. Ayarlarda bağlanabilen HER eylem burada:
+    // eksik bir satır, o eylemin menüde kısayolsuz görünmesi demek.
+    auto actionOf = [](UINT command) noexcept {
+        switch (command) {
+            case IDM_CAPTURE_REGION:     return HotkeyAction::Region;
+            case IDM_CAPTURE_WINDOW:     return HotkeyAction::Window;
+            case IDM_CAPTURE_ACTIVE:     return HotkeyAction::ActiveWindow;
+            case IDM_CAPTURE_FULLSCREEN: return HotkeyAction::Monitor;
+            case IDM_CAPTURE_ALL:        return HotkeyAction::AllMonitors;
+            case IDM_CAPTURE_LAST:       return HotkeyAction::LastRegion;
+            case IDM_CAPTURE_DELAYED:    return HotkeyAction::Delayed;
+            case IDM_DELAYED_WINDOW:     return HotkeyAction::DelayedWindow;
+            case IDM_DELAYED_MONITOR:    return HotkeyAction::DelayedMonitor;
+            case IDM_CAPTURE_SCROLL:     return HotkeyAction::Scrolling;
+            case IDM_SELECT_TEXT:        return HotkeyAction::SelectText;
+            case IDM_CAPTURE_OCR:        return HotkeyAction::RegionText;
+            case IDM_PICK_COLOR:         return HotkeyAction::PickColor;
+            case IDM_HISTORY:            return HotkeyAction::History;
+            default:                     return HotkeyAction::None;
+        }
+    };
+
+    // Metinler her açılışta yeniden okunur: dil ayarı değiştiğinde menünün
+    // eski dilde kalmaması için önbelleğe alınmazlar. Kısayol metni sabit
+    // değil, KULLANICININ o an bağladığı tuştur; ayar yoksa (erken açılış)
+    // varsayılan hızlandırıcı yazılır.
+    auto add = [this, actionOf](HMENU target, UINT command, UINT textId,
+                                UINT acceleratorId, UINT flags = MF_STRING) {
         std::wstring text = m_settings != nullptr
                                 ? Loc::Str(textId)
                                 : Loc::MenuText(textId, acceleratorId);
         if (m_settings != nullptr) {
-            const HotkeyAction action =
-                command == IDM_CAPTURE_REGION ? HotkeyAction::Region :
-                command == IDM_CAPTURE_WINDOW ? HotkeyAction::Window :
-                command == IDM_CAPTURE_ACTIVE ? HotkeyAction::ActiveWindow :
-                command == IDM_CAPTURE_FULLSCREEN ? HotkeyAction::Monitor :
-                command == IDM_CAPTURE_ALL ? HotkeyAction::AllMonitors :
-                command == IDM_CAPTURE_LAST ? HotkeyAction::LastRegion :
-                command == IDM_CAPTURE_DELAYED ? HotkeyAction::Delayed :
-                command == IDM_CAPTURE_SCROLL ? HotkeyAction::Scrolling :
-                HotkeyAction::None;
+            const HotkeyAction action = actionOf(command);
             for (const HotkeyBinding& binding : m_settings->hotkeys) {
-                if (binding.action == action && binding.key.assigned()) {
+                if (action != HotkeyAction::None && binding.action == action &&
+                    binding.key.assigned()) {
                     text += L"\t" + HotkeyText(binding.key);
                     break;
                 }
             }
         }
-        ::AppendMenuW(menu, MF_STRING, command, text.c_str());
+        ::AppendMenuW(target, flags, command, text.c_str());
     };
     auto separator = [menu]() { ::AppendMenuW(menu, MF_SEPARATOR, 0, nullptr); };
 
-    add(IDM_CAPTURE_REGION, IDS_MENU_REGION, IDS_ACCEL_REGION);
-    add(IDM_CAPTURE_WINDOW, IDS_MENU_WINDOW, IDS_ACCEL_WINDOW);
-    add(IDM_CAPTURE_ACTIVE, IDS_ACT_ACTIVE_WINDOW, 0);
-    add(IDM_CAPTURE_FULLSCREEN, IDS_MENU_FULLSCREEN, IDS_ACCEL_FULLSCREEN);
-    add(IDM_CAPTURE_ALL, IDS_ACT_ALL_MONITORS, 0);
+    add(menu, IDM_CAPTURE_REGION, IDS_MENU_REGION, IDS_ACCEL_REGION);
+    add(menu, IDM_CAPTURE_WINDOW, IDS_MENU_WINDOW, IDS_ACCEL_WINDOW);
+    add(menu, IDM_CAPTURE_ACTIVE, IDS_ACT_ACTIVE_WINDOW, 0);
+    add(menu, IDM_CAPTURE_FULLSCREEN, IDS_MENU_FULLSCREEN, IDS_ACCEL_FULLSCREEN);
+    add(menu, IDM_CAPTURE_ALL, IDS_ACT_ALL_MONITORS, 0);
     // SON BÖLGE, BÖLGESİ YOKKEN SOLUKTUR: menüde görünüp hiçbir şey yapmayan
     // bir komut, kullanıcının bozuk sandığı bir komuttur.
-    ::AppendMenuW(menu, m_hasLastRegion ? MF_STRING : (MF_STRING | MF_GRAYED),
-                  IDM_CAPTURE_LAST, Loc::Str(IDS_ACT_LAST_REGION).c_str());
+    add(menu, IDM_CAPTURE_LAST, IDS_ACT_LAST_REGION, 0,
+        m_hasLastRegion ? MF_STRING : (MF_STRING | MF_GRAYED));
     // GECİKMELİ ARTIK ÜÇ ŞEY. Altyapı her yakalamayı geciktirebiliyordu ama
     // menüde tek bir satır vardı ve o satır sabit olarak bölge demekti.
     // Üçünü de üst düzeye koymak yakalama grubunu yarı yarıya uzatırdı.
     {
         const HMENU delayed = ::CreatePopupMenu();
         if (delayed != nullptr) {
-            ::AppendMenuW(delayed, MF_STRING, IDM_CAPTURE_DELAYED,
-                          Loc::MenuText(IDS_MENU_DELAYED_REGION, IDS_ACCEL_DELAYED).c_str());
-            ::AppendMenuW(delayed, MF_STRING, IDM_DELAYED_WINDOW,
-                          Loc::Str(IDS_ACT_DELAYED_WINDOW).c_str());
-            ::AppendMenuW(delayed, MF_STRING, IDM_DELAYED_MONITOR,
-                          Loc::Str(IDS_ACT_DELAYED_MONITOR).c_str());
+            add(delayed, IDM_CAPTURE_DELAYED, IDS_MENU_DELAYED_REGION, IDS_ACCEL_DELAYED);
+            add(delayed, IDM_DELAYED_WINDOW, IDS_ACT_DELAYED_WINDOW, 0);
+            add(delayed, IDM_DELAYED_MONITOR, IDS_ACT_DELAYED_MONITOR, 0);
             ::AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(delayed),
                           Loc::Str(IDS_MENU_DELAYED).c_str());
         }
     }
     // Kaydırmalı yakalama yakalama grubunun SONUNDA: diğer altısı bir karede
     // biterken bu saniyeler sürüyor ve pencereyi kendisi kaydırıyor.
-    add(IDM_CAPTURE_SCROLL, IDS_MENU_SCROLL, 0);
+    add(menu, IDM_CAPTURE_SCROLL, IDS_MENU_SCROLL, 0);
     separator();
-    add(IDM_SELECT_TEXT, IDS_MENU_SELECT_TEXT, 0);
-    add(IDM_CAPTURE_OCR, IDS_MENU_REGION_TEXT, 0);
-    add(IDM_PICK_COLOR, IDS_MENU_PICK_COLOR, 0);
+    add(menu, IDM_SELECT_TEXT, IDS_MENU_SELECT_TEXT, 0);
+    add(menu, IDM_CAPTURE_OCR, IDS_MENU_REGION_TEXT, 0);
+    add(menu, IDM_PICK_COLOR, IDS_MENU_PICK_COLOR, 0);
     separator();
     ::AppendMenuW(menu, m_hasClipboardImage ? MF_STRING : (MF_STRING | MF_GRAYED),
                   IDM_OPEN_CLIPBOARD, Loc::Str(IDS_MENU_CLIPBOARD).c_str());
-    add(IDM_HISTORY, IDS_MENU_HISTORY, 0);
-    add(IDM_OPEN_FOLDER, IDS_MENU_OPEN_FOLDER, 0);
+    add(menu, IDM_HISTORY, IDS_MENU_HISTORY, 0);
+    add(menu, IDM_OPEN_FOLDER, IDS_MENU_OPEN_FOLDER, 0);
 
     // SON BAĞLANTILAR. Yükleme bağlantıyı panoya koyup orada bırakıyordu; bir
     // sonraki kopyalama onu siliyor ve kullanıcının elinde hiçbir şey
@@ -284,9 +308,9 @@ int TrayIcon::ShowMenu(HWND owner) {
     }
 
     separator();
-    add(IDM_SETTINGS, IDS_MENU_SETTINGS, 0);
-    add(IDM_ABOUT, IDS_MENU_ABOUT, 0);
-    add(IDM_EXIT, IDS_MENU_EXIT, 0);
+    add(menu, IDM_SETTINGS, IDS_MENU_SETTINGS, 0);
+    add(menu, IDM_ABOUT, IDS_MENU_ABOUT, 0);
+    add(menu, IDM_EXIT, IDS_MENU_EXIT, 0);
 
     POINT cursor{};
     ::GetCursorPos(&cursor);

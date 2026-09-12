@@ -9,6 +9,8 @@
 #include "Capture.h"
 #include "Geometry.h"
 
+#include <utility>
+
 using namespace crisp;
 
 CRISP_TEST(Image, Create_gecerli_boyut) {
@@ -280,4 +282,26 @@ CRISP_TEST(Capture, CaptureWindow_masaustu_penceresi) {
     const RECT screen = VirtualScreenRect();
     CHECK(image.Width() <= geom::Width(screen));
     CHECK(image.Height() <= geom::Height(screen));
+}
+
+CRISP_TEST(Image, Tasinan_nesne_bos_kalir) {
+    // Varsayılan taşıma m_bits ve boyutları yerinde bırakıyordu: Valid() false
+    // dese de Width() eski boyutu, Bits() serbest bırakılmış bölgeyi
+    // gösterirdi.
+    Image source;
+    CHECK(source.Create(5, 3));
+    Image moved = std::move(source);
+    CHECK(moved.Valid());
+    CHECK_EQ(moved.Width(), 5);
+    CHECK(!source.Valid());
+    CHECK_EQ(source.Width(), 0);
+    CHECK_EQ(source.Height(), 0);
+    CHECK(source.Bits() == nullptr);
+
+    Image assigned;
+    CHECK(assigned.Create(2, 2));
+    assigned = std::move(moved);
+    CHECK_EQ(assigned.Width(), 5);
+    CHECK_EQ(moved.Width(), 0);
+    CHECK(moved.Bits() == nullptr);
 }

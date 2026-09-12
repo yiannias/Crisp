@@ -6,6 +6,7 @@
 #include "ImageCodec.h"
 #include "Util.h"
 
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -246,8 +247,11 @@ CRISP_TEST(Codec, JPEG_kaydedilebilir_ve_geri_okunabilir) {
 
     // JPEG KAYIPLIDIR: pikseller birebir aynı OLMAZ. Doğrulanabilecek şey
     // boyutun korunması ve dosyanın gerçekten çözülebilmesi.
+    // LoadImageFile, LoadPng DEĞİL: LoadPng geçmişten okurken PNG imzasını
+    // ve IEND parçasını arar ve bir JPEG'i doğru olarak reddeder; herhangi bir
+    // dosyayı açan yol LoadImageFile'dır.
     Image loaded;
-    CHECK(LoadPng(path, loaded));   // WIC kapsayıcıyı kendisi tanır
+    CHECK(LoadImageFile(path, loaded));   // WIC kapsayıcıyı kendisi tanır
     CHECK_EQ(loaded.Width(), 48);
     CHECK_EQ(loaded.Height(), 32);
 }
@@ -287,4 +291,38 @@ CRISP_TEST(Codec, Genis_ve_ince_goruntular) {
         CHECK(DecodePng(png.data(), png.size(), decoded));
         CHECK(ImagesIdentical(original, decoded));
     }
+}
+
+CRISP_TEST(Codec, LoadPng_kesik_dosya_reddedilir) {
+    // WIC yarım bir PNG'yi memnuniyetle çözer ve eksik satırları tanımsız
+    // bırakır. Geçmişten okunan bir dosya yarım kalmışsa hata dönmeli, yarım
+    // görüntü değil.
+    Image original;
+    CHECK(original.Create(24, 24));
+    PaintTestPattern(original);
+
+    std::vector<uint8_t> png;
+    CHECK(EncodePng(original, png));
+    png.resize(png.size() / 2);
+
+    const std::wstring path = TempFile(L"kesik.png");
+    FILE* file = nullptr;
+    CHECK(::_wfopen_s(&file, path.c_str(), L"wb") == 0 && file != nullptr);
+    if (file != nullptr) {
+        CHECK_EQ(::fwrite(png.data(), 1, png.size(), file), png.size());
+        ::fclose(file);
+    }
+
+    Image loaded;
+    CHECK(!LoadPng(path, loaded));
+    CHECK(!loaded.Valid());
+}
+
+CRISP_TEST(Codec, FormatFromPath_klasor_adindaki_nokta_uzanti_degil) {
+    // Son nokta bir KLASÖR adındaysa dosyanın uzantısı yoktur; "jpg\dosya"
+    // diye bir uzantı aranmamalı.
+    CHECK(FormatFromPath(L"C:\\resim.jpg\\dosya") == ImageFormat::Png);
+    CHECK(FormatFromPath(L"C:\\a.b\\c.webp") == ImageFormat::WebP);
+    // Çok uzun bir "uzantı" bilinen bir biçim değildir.
+    CHECK(FormatFromPath(L"C:\\a\\b.jpegjpegjpeg") == ImageFormat::Png);
 }

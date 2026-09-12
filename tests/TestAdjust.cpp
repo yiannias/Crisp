@@ -167,3 +167,32 @@ CRISP_TEST(Adjust, Gecersiz_goruntu_guvenli) {
     Convolve3x3(image, kernel, 0, 0);
     CHECK_EQ(image.Pixel(0, 0), 0xFF102030u);
 }
+
+CRISP_TEST(Adjust, Sharpen_siddet_arttikca_guclenir) {
+    // Aynı kenar, iki şiddet: yüksek şiddet kenarın iki yanını DAHA ÇOK
+    // ayırmalı. Eski çekirdek tersti — sürgüyü artırmak etkiyi azaltıyordu.
+    auto edge = [] {
+        Image image;
+        (void)image.Create(8, 4);
+        for (int y = 0; y < 4; ++y) {
+            for (int x = 0; x < 8; ++x) {
+                image.SetPixel(x, y, x < 4 ? 0xFF606060u : 0xFF909090u);
+            }
+        }
+        return image;
+    };
+
+    Image weak = edge();
+    ApplySharpen(weak, 20);
+    Image strong = edge();
+    ApplySharpen(strong, 100);
+
+    const int weakGap = Red(weak.Pixel(4, 2)) - Red(weak.Pixel(3, 2));
+    const int strongGap = Red(strong.Pixel(4, 2)) - Red(strong.Pixel(3, 2));
+    CHECK(weakGap > 0x30);          // kenar en azından korunmuş
+    CHECK(strongGap > weakGap);     // ve şiddetle büyümüş
+
+    // Düz alan hiçbir şiddette değişmez: konvolüsyon kimliği korur.
+    CHECK_EQ(Red(strong.Pixel(1, 1)), 0x60);
+    CHECK_EQ(Red(strong.Pixel(6, 1)), 0x90);
+}

@@ -5,6 +5,102 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- **Sharpen was inverted.** The kernel grew the centre weight with strength,
+  so 1 was the strongest setting and 100 the weakest. Strength now scales the
+  deviation from the neighbourhood; the editor's fixed 60 sharpens noticeably.
+- **Two GDI leaks per session.** The overlay's back buffer was destroyed while
+  still selected into its DC, leaking a virtual-screen-sized bitmap on every
+  capture; the editor's chrome layers did the same on every resize.
+- **A failed save no longer leaves a zero-byte file** that the next capture
+  would then refuse to overwrite.
+- **A truncated history PNG is rejected** instead of loading as a half image.
+  Arbitrary files (drag-and-drop, command line) still go through the lenient
+  path.
+- **Clipboard DIBs with real alpha** kept their transparent pixels opaque
+  black. The alpha decision is now per image: all-zero alpha means opaque.
+- **JSON links containing `\u0026`-style escapes** were corrupted, and a
+  dotted path whose value was a string could read a key out of an unrelated
+  object. Both fixed in the upload response parser.
+- **The message box ignored Enter** until the user pressed Tab first.
+- **Esc during a resize-handle drag** in the editor closed the window with the
+  edit half-applied and the mouse still captured. It now cancels and reverts.
+- **The live shape preview ignored zoom**: at 50 % a line previewed twice as
+  thick as it was committed.
+- **Changing colour, thickness or fill on a selected shape** rewrote all three
+  properties. Only the changed one is applied now.
+- **Clicking a shape without moving it** pushed an empty undo step.
+- **Freehand shapes drifted while being resized**; scaling now always starts
+  from the shape as it was when the handle was grabbed.
+- **OCR word boxes survived rotate, scale, undo and drop-file** with stale
+  coordinates. Image-changing operations now leave OCR mode.
+- **Precision touchpads could not zoom the editor or scroll history**: wheel
+  deltas under 120 were truncated to zero.
+- **Hover highlights stuck** in the history, about and editor windows when the
+  mouse left, because nothing requested `WM_MOUSELEAVE`.
+- **Pin double-click** never fired: the window reports `HTCAPTION`, so the
+  event arrives as a non-client double-click.
+- **Pinned active window was offset** by the invisible resize border; the pin
+  origin now uses the same DWM frame bounds as the capture.
+- **The About box showed 0.3.0.** The version now comes from CMake through
+  `Version.h`, the same source the executable's file version uses.
+- **The tray menu showed fixed accelerators** for Delayed and none for Last
+  region, Select text, Region text, Colour picker and History. Every item now
+  shows the shortcut the user actually bound.
+- **The same hotkey in two slots** was reported as an external conflict; the
+  later slot is cleared instead.
+- **Win was swallowed but never encoded** in the hotkey box, so Win+S stored a
+  bare `S`. `MOD_WIN` is now recorded and displayed.
+- **API keys pasted with a trailing newline** split the HTTP header block;
+  control characters are stripped on load.
+- **Reserved device names** (`CON`, `NUL`, `COM1`…) from a window title are
+  prefixed with an underscore instead of being handed to `CreateFile`.
+- **Concurrent uploads** could interleave their read-modify-write of the link
+  log; the append is now serialised.
+- **A failed status query** on an upload reported "unexpected answer (0)"
+  instead of a network error.
+- **The scrolling-capture and text-to-clipboard overlays showed the action
+  bar** although both discard the chosen action.
+- **The text-select overlay captured the screen twice**, once for OCR and once
+  for display, so word boxes could sit on a different frame.
+- **Overlay or editor creation failure** posted a `WM_QUIT` that the tray app
+  picked up and exited on.
+- **Nested message loops** (history, clipboard image, file open, scrolling
+  capture) ran with the busy flag clear, so a hotkey could open a second
+  overlay and a second editor on top.
+- **The tray icon failing to register at logon** aborted startup; it now
+  retries briefly and continues with hotkeys.
+- **Save-as dialogs** were limited to `MAX_PATH` and treated a longer target as
+  cancel.
+- A stitched scrolling capture taller than the bitmap limit lost every frame;
+  stitching now stops at the last frame that fits.
+- `SleepPumping` used the 32-bit tick counter; the settle wait collapsed to
+  zero at wraparound.
+- A moved-from `Image` kept its old size and a dangling pixel pointer.
+- The test runner leaked its temporary directory on every run.
+
+### Changed
+
+- `Scale`, `CreateUiFont` and `FillRectColor` lived as identical copies in
+  eight windows; they are one set of inline helpers in `UiCommon.h`, together
+  with `TrackMouseLeave` and `DiscardPendingQuit`.
+- `CaptureWindow` uses `WindowFrameBounds` instead of its own copy of the DWM
+  fallback; `FormatFromPath` delegates to `FormatFromString`.
+- `BlurRegion` allocates a scratch buffer the size of the region, not the
+  whole image; on a 4K capture a small blur no longer copies 33 MB per render.
+- `Convolve3x3` copies its source with one `memcpy`.
+- `kMenuSettleMs` is defined once in `App.h`.
+
+### Tests
+
+- Sharpen direction, truncated PNG on disk, dotted directory names in
+  `FormatFromPath`, JSON `\u` escapes and strict object entry, reserved file
+  names, duplicate hotkey slots, API key hygiene, moved-from `Image`, and
+  region-bounded blur.
+
 ## 0.8.0 — the overlay stops being a one-way door
 
 ### Added — an action bar on the settled selection

@@ -432,3 +432,32 @@ CRISP_TEST(Annotation, ScaleTo_ayni_dikdortgene_dokunmaz) {
     CHECK_EQ(shape.end.x, 91L);
     CHECK_EQ(shape.end.y, 64L);
 }
+
+CRISP_TEST(Effects, Blur_bolgenin_disina_dokunmaz) {
+    // Ara tampon artık bütün görüntü değil, yalnızca bölge kadar: bölge dışı
+    // piksellerin değişmediği ve bölge içinin kaynağın komşularından (bölge
+    // sınırının ötesinden) okunarak bulanıklaştığı doğrulanır.
+    Image image;
+    CHECK(image.Create(40, 20));
+    PaintHalves(image);
+
+    // Kenarı (x=20) tam ortalayan bir bölge; solunda ve sağında dokunulmayan
+    // şeritler kalır.
+    BlurRegion(image, RECT{14, 4, 26, 16}, 3);
+
+    // Bölge dışı: saf siyah ve saf beyaz kalmalı.
+    CHECK_EQ(image.Pixel(5, 10) & 0xFFu, 0u);
+    CHECK_EQ(image.Pixel(35, 10) & 0xFFu, 0xFFu);
+    CHECK_EQ(image.Pixel(19, 2) & 0xFFu, 0u);      // bölgenin üstü
+    CHECK_EQ(image.Pixel(21, 18) & 0xFFu, 0xFFu);  // bölgenin altı
+
+    // Bölge içinde kenarın iki yanı karışmış olmalı.
+    const uint32_t left = image.Pixel(19, 10) & 0xFFu;
+    const uint32_t right = image.Pixel(20, 10) & 0xFFu;
+    CHECK(left > 0u && left < 0xFFu);
+    CHECK(right > 0u && right < 0xFFu);
+    // Bölgenin sol kenarındaki piksel, bölge dışındaki siyah komşularını
+    // okuyabildiği için hâlâ siyahtır: kopyalanan tampon bölgeyle
+    // sınırlıdır ama okuma kaynağın tamamından yapılır.
+    CHECK_EQ(image.Pixel(14, 10) & 0xFFu, 0u);
+}

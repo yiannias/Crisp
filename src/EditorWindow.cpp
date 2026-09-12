@@ -58,21 +58,26 @@ void DrawCanvas(HDC dc, HDC reference, State& state) {
 
     FrameRectColor(dc, state.canvas, 1, colors.border);
     DrawOcrOverlay(dc, state);
-    ::RestoreDC(dc, saved);
 
     // Sürüklenen şekil ÖNİZLEMESİ tuvale, ölçeklenmiş koordinatlarda.
+    //
+    // KIRPMA HÂLÂ AÇIK: önizleme, metin taslağı ve seçim çerçevesi görüntü
+    // alanının dışına taşabilir (yakınlaştırılmış tuval, pencere dışına
+    // sürükleme) ve kırpma kaldırılmış olsaydı araç çubuğunun üstüne çizilirdi.
     if (!state.ocr.active && state.dragging) {
         Shape scaled = state.draft;
-        auto toClient = [&](POINT p) {
-            return POINT{state.canvas.left + static_cast<LONG>(p.x * state.scale),
-                         state.canvas.top + static_cast<LONG>(p.y * state.scale)};
-        };
-        scaled.start = toClient(state.draft.start);
-        scaled.end = toClient(state.draft.end);
+        scaled.start = ToClient(state, state.draft.start);
+        scaled.end = ToClient(state, state.draft.end);
         for (POINT& p : scaled.points) {
-            p = toClient(p);
+            p = ToClient(state, p);
         }
-        RenderPreview(dc, scaled, state.dpi, state.canvas);
+        // KALINLIK YAKINLAŞTIRMAYLA ÖLÇEKLENİR: şekil görüntü pikseli
+        // kalınlığında pişirilip tuvale ölçekle çiziliyor; önizleme ekran
+        // pikseli kullansaydı %50'de iki kat kalın, %400'de dört kat ince
+        // görünürdü.
+        const unsigned previewDpi = static_cast<unsigned>(
+            (std::max)(1.0, static_cast<double>(state.dpi) * state.scale + 0.5));
+        RenderPreview(dc, scaled, previewDpi, state.canvas);
     }
     if (!state.ocr.active && state.typing) {
         DrawTextDraft(dc, state);
@@ -80,13 +85,10 @@ void DrawCanvas(HDC dc, HDC reference, State& state) {
     if (!state.ocr.active) {
         DrawSelectionFrame(dc, state);
     }
+    ::RestoreDC(dc, saved);
 }
 
 }  // namespace
-
-int Scale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
-}
 
 int ButtonAt(const State& state, POINT client) noexcept {
     for (size_t i = 0; i < state.buttons.size(); ++i) {

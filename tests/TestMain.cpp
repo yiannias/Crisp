@@ -56,23 +56,29 @@ std::wstring CreateTempDirectory() {
     return path;
 }
 
+// ÖZYİNELİ: geçmiş testleri alt klasör açıyor ve HistoryStore::Clear yalnızca
+// dosyaları siliyor. Üst klasör boşalmayınca RemoveDirectoryW başarısız
+// oluyor ve %TEMP% altında her koşudan bir crisp_tests_<pid> kalıyordu.
 void RemoveTempDirectory(const std::wstring& path) {
     if (path.empty()) {
         return;
     }
 
-    // Yalnızca doğrudan içindeki dosyalar; testler alt klasör oluşturursa
-    // orası kasıtlıdır ve ayrıca temizlenir.
     std::wstring pattern = path + L"\\*";
     WIN32_FIND_DATAW data{};
     const HANDLE find = ::FindFirstFileW(pattern.c_str(), &data);
     if (find != INVALID_HANDLE_VALUE) {
         do {
-            if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+            if (::wcscmp(data.cFileName, L".") == 0 ||
+                ::wcscmp(data.cFileName, L"..") == 0) {
                 continue;
             }
-            std::wstring file = path + L'\\' + data.cFileName;
-            ::DeleteFileW(file.c_str());
+            const std::wstring child = path + L'\\' + data.cFileName;
+            if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+                RemoveTempDirectory(child);
+            } else {
+                ::DeleteFileW(child.c_str());
+            }
         } while (::FindNextFileW(find, &data));
         ::FindClose(find);
     }

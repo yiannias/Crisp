@@ -34,10 +34,14 @@ struct OverlayState {
     Image frozen;
     Image dimmed;
 
+    // BİLDİRİM SIRASI ÖNEMLİ: üyeler ters sırada yok edilir. Tampon, seçili
+    // olduğu DC'den ÖNCE silinirse DeleteObject başarısız olur ve sanal ekran
+    // boyutunda bir bitmap her kaplama açılışında sızar. Bu yüzden bitmap'ler
+    // DC'lerden önce bildirilir: önce DC'ler gider, sonra bitmap'ler.
+    unique_hbitmap backBuffer;
     unique_hdc frozenDc;
     unique_hdc dimmedDc;
     unique_hdc backBufferDc;
-    unique_hbitmap backBuffer;
 
     POINT anchor{};
     // TEXTSELECT KİPİNE AİT. Bölge kipi artık `grab`i kullanıyor; iki bayrağı

@@ -28,7 +28,13 @@ namespace crisp {
                                         const Settings& settings,
                                         bool preferWindowPick, Image& out,
                                         POINT& origin, RECT& selection,
-                                        OverlayAction& action);
+                                        OverlayAction& action,
+                                        bool showActionBar = true);
+
+// Tepsi menüsü ya da bir kısayoldan gelen komut, menü kapanırken ekranı
+// dondurursa menünün kendisi yakalamaya girer; bu kadar beklenir. Üç akışta
+// (yakalama, eylemler, metin) ayrı ayrı tanımlıydı.
+inline constexpr DWORD kMenuSettleMs = 120;
 
 // Komut satırı argümanını bir eyleme çevirir; tanınmayan argüman None döner.
 // Dosya yolu argümanları burada değil, çağıranda ele alınır.
@@ -162,6 +168,18 @@ private:
     // Geri sayım sırasında yeniden tetiklenmeyi engeller; kaplama açıkken de
     // ikinci bir kaplama açılmamalı.
     bool m_busy = false;
+
+    // BAYRAK KAPSAM BOYUNCA KURULU KALIR. Düzenleyici, geçmiş ve ileti kutusu
+    // kendi mesaj döngülerini işletiyor ve o sırada gelen bir kısayol ikinci
+    // bir kaplama, ardından iç içe ikinci bir düzenleyici açabiliyordu. Her
+    // çıkış yolunda bayrağı elle sıfırlamak, birini unutmakla eşdeğerdi.
+    struct BusyScope {
+        bool& flag;
+        explicit BusyScope(bool& f) noexcept : flag(f) { flag = true; }
+        ~BusyScope() { flag = false; }
+        BusyScope(const BusyScope&) = delete;
+        BusyScope& operator=(const BusyScope&) = delete;
+    };
 
     // Kendiliğinden başlamış bir yükleme sürüyor. Yakalama bildirimini
     // susturur: o sırada ekranda duran "yükleniyor" kutusu daha güncel bir şey

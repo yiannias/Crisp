@@ -175,13 +175,7 @@ void DrawTooltip(HDC dc, const State& state, const RECT& client) {
     const Palette& colors = theme::Colors();
     const unsigned dpi = state.dpi;
 
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(9, static_cast<int>(dpi), 72);
-    font.lfWeight = FW_NORMAL;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    const HFONT created = ::CreateFontIndirectW(&font);
+    const HFONT created = CreateUiFont(dpi, 9, FW_NORMAL);
     if (created == nullptr) {
         return;
     }

@@ -188,10 +188,6 @@ void ApplyDarkTheme(HWND parent) {
 
 }  // namespace
 
-int Scale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
-}
-
 UINT HotkeyActionLabel(HotkeyAction action) noexcept {
     switch (action) {
         case HotkeyAction::Region:       return IDS_ACT_REGION;

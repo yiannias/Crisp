@@ -22,6 +22,10 @@ bool AlphaLayer::Prepare(HDC referenceDc, POINT origin, int width, int height) {
 
     if (!m_surface.Valid() || m_surface.Width() != width ||
         m_surface.Height() != height) {
+        // DC ÖNCE GİDER: eski yüzey hâlâ bu DC'ye seçiliyken Create onu
+        // silmeye kalkar, DeleteObject seçili bitmap'te başarısız olur ve
+        // her yeniden boyutlandırmada bir DIB sızardı.
+        m_dc.reset();
         if (!m_surface.Create(width, height)) {
             return false;
         }

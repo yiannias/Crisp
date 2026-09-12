@@ -77,8 +77,10 @@ LRESULT CALLBACK SettingsProc(HWND window, UINT message, WPARAM wParam,
             }
             const HDC dc = reinterpret_cast<HDC>(wParam);
             ::SetTextColor(dc, theme::Colors().text);
+            // Metin zemini ile döndürülen fırça AYNI renk olmalı; eskiden
+            // metin hücreleri surfaceAlt, kutunun kalanı surface boyanıyordu.
             ::SetBkColor(dc, theme::Colors().surfaceAlt);
-            return reinterpret_cast<LRESULT>(state->backgroundBrush);
+            return reinterpret_cast<LRESULT>(state->fieldBrush);
         }
 
         case WM_COMMAND: {
@@ -208,17 +210,10 @@ bool ShowSettingsWindow(HINSTANCE instance, Settings& settings) {
     }
     state.dpi = dpiX;
 
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(9, static_cast<int>(state.dpi), 72);
-    font.lfWeight = FW_NORMAL;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    state.font = ::CreateFontIndirectW(&font);
-    font.lfHeight = -::MulDiv(10, static_cast<int>(state.dpi), 72);
-    font.lfWeight = FW_SEMIBOLD;
-    state.groupFont = ::CreateFontIndirectW(&font);
+    state.font = CreateUiFont(state.dpi, 9, FW_NORMAL);
+    state.groupFont = CreateUiFont(state.dpi, 10, FW_SEMIBOLD);
     state.backgroundBrush = ::CreateSolidBrush(theme::Colors().surface);
+    state.fieldBrush = ::CreateSolidBrush(theme::Colors().surfaceAlt);
 
     // İstemci alanı tam olarak tasarım ölçüsünde olmalı; pencere ölçüsü
     // verilseydi kenarlık ve başlık çubuğu içeriden çalardı ve alt düğmeler
@@ -262,6 +257,9 @@ bool ShowSettingsWindow(HINSTANCE instance, Settings& settings) {
     }
     if (state.backgroundBrush != nullptr) {
         ::DeleteObject(state.backgroundBrush);
+    }
+    if (state.fieldBrush != nullptr) {
+        ::DeleteObject(state.fieldBrush);
     }
 
     if (state.accepted) {

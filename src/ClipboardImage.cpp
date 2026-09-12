@@ -222,18 +222,33 @@ private:
     const auto* pixels = static_cast<const uint8_t*>(data) + header->biSize;
     const int bytesPerPixel = header->biBitCount / 8;
 
+    // ALFA KARARI GÖRÜNTÜ BAŞINA, PİKSEL BAŞINA DEĞİL. 24 bitte alfa yoktur;
+    // 32 bitte pek çok pano yazarı alfa baytını hiç doldurmaz ve HEPSİ sıfır
+    // kalır — o hâlde görüntü opak sayılır. Ama tek bir piksel bile sıfırdan
+    // farklıysa yazar alfayı kullanıyordur ve sıfır GERÇEKTEN saydamdır; onu
+    // pikselde opaklaştırmak saydam alanları siyaha boyardı.
+    bool anyAlpha = false;
+    if (bytesPerPixel == 4) {
+        for (int y = 0; y < height && !anyAlpha; ++y) {
+            const uint8_t* row = pixels + static_cast<size_t>(y) * sourceStride;
+            for (int x = 0; x < width; ++x) {
+                if (row[static_cast<size_t>(x) * 4 + 3] != 0) {
+                    anyAlpha = true;
+                    break;
+                }
+            }
+        }
+    }
+
     for (int y = 0; y < height; ++y) {
         const size_t sourceRow =
             static_cast<size_t>(bottomUp ? (height - 1 - y) : y) * sourceStride;
         const uint8_t* row = pixels + sourceRow;
         for (int x = 0; x < width; ++x) {
             const uint8_t* p = row + static_cast<size_t>(x) * bytesPerPixel;
-            const uint32_t alpha = (bytesPerPixel == 4) ? p[3] : 0xFFu;
-            // 24 bitte alfa yoktur; 32 bitte de pano yazarları sıfır bırakabilir,
-            // o hâlde opak sayılır — aksi hâlde görüntü tamamen saydam olurdu.
-            const uint32_t effectiveAlpha = (alpha == 0) ? 0xFFu : alpha;
+            const uint32_t alpha = anyAlpha ? p[3] : 0xFFu;
             out.SetPixel(x, y,
-                         (effectiveAlpha << 24) | (static_cast<uint32_t>(p[2]) << 16) |
+                         (alpha << 24) | (static_cast<uint32_t>(p[2]) << 16) |
                              (static_cast<uint32_t>(p[1]) << 8) |
                              static_cast<uint32_t>(p[0]));
         }

@@ -69,8 +69,17 @@ LRESULT CALLBACK AboutProc(HWND window, UINT message, WPARAM wParam,
                 ::InvalidateRect(window, nullptr, FALSE);
             }
             ::SetCursor(::LoadCursorW(nullptr, link ? IDC_HAND : IDC_ARROW));
+            TrackMouseLeave(window);
             return 0;
         }
+
+        case WM_MOUSELEAVE:
+            if (state != nullptr && (state->linkHot || state->closeHot)) {
+                state->linkHot = false;
+                state->closeHot = false;
+                ::InvalidateRect(window, nullptr, FALSE);
+            }
+            return 0;
 
         case WM_LBUTTONUP: {
             if (state == nullptr) {
@@ -146,11 +155,6 @@ LRESULT CALLBACK AboutProc(HWND window, UINT message, WPARAM wParam,
 
 }  // namespace
 
-namespace about {
-int Scale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
-}
-}  // namespace about
 
 void ShowAboutWindow(HINSTANCE instance) {
     if (g_open != nullptr) {

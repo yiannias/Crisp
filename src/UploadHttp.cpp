@@ -152,10 +152,15 @@ UploadResult UploadPng(UploadService service, const std::wstring& apiKey,
 
     DWORD status = 0;
     DWORD statusSize = sizeof(status);
-    ::WinHttpQueryHeaders(http.get(),
-                          WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                          WINHTTP_HEADER_NAME_BY_INDEX, &status, &statusSize,
-                          WINHTTP_NO_HEADER_INDEX);
+    if (::WinHttpQueryHeaders(http.get(),
+                              WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                              WINHTTP_HEADER_NAME_BY_INDEX, &status, &statusSize,
+                              WINHTTP_NO_HEADER_INDEX) == FALSE) {
+        // Durum kodu okunamadıysa yanıt yok demektir; "beklenmeyen yanıt (0)"
+        // yerine ağ hatası.
+        result.error = UploadError::Network;
+        return result;
+    }
 
     std::string body;
     for (;;) {

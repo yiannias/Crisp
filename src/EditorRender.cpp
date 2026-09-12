@@ -1,6 +1,8 @@
 // EditorRender.cpp — bkz. EditorRender.h.
 #include "EditorRender.h"
 
+#include "UiCommon.h"
+
 #include "Geometry.h"
 #include "ImageEffects.h"
 #include "Util.h"
@@ -10,10 +12,6 @@
 
 namespace crisp {
 namespace {
-
-[[nodiscard]] int Scale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
-}
 
 [[nodiscard]] int StrokeWidth(const Shape& shape, unsigned dpi) noexcept {
     const int width = Scale(shape.thickness, dpi);

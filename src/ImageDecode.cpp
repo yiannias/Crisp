@@ -10,6 +10,8 @@
 #include <shlwapi.h>
 #include <wincodec.h>
 
+#include <vector>
+
 namespace crisp {
 namespace {
 
@@ -64,6 +66,38 @@ bool LoadPng(const std::wstring& path, Image& out) {
         return false;
     }
 
+    // DOSYA ÖNCE BELLEĞE OKUNUR: WIC'e doğrudan bir dosya akışı vermek, eksik
+    // yazılmış bir geçmiş PNG'sini yarım görüntü olarak kabul ettirirdi.
+    // DecodePng imzayı ve IEND parçasını doğrular; tek doğrulama noktası odur.
+    const unique_handle file{::CreateFileW(path.c_str(), GENERIC_READ,
+                                           FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                                           FILE_ATTRIBUTE_NORMAL, nullptr)};
+    if (!file.valid()) {
+        return false;
+    }
+    LARGE_INTEGER size{};
+    if (!::GetFileSizeEx(file.get(), &size) || size.QuadPart <= 0 ||
+        size.QuadPart > MAXUINT32) {
+        return false;
+    }
+    std::vector<uint8_t> bytes(static_cast<size_t>(size.QuadPart));
+    DWORD read = 0;
+    if (!::ReadFile(file.get(), bytes.data(), static_cast<DWORD>(bytes.size()),
+                    &read, nullptr) ||
+        read != bytes.size()) {
+        return false;
+    }
+    return DecodePng(bytes.data(), bytes.size(), out);
+}
+
+bool LoadImageFile(const std::wstring& path, Image& out) {
+    out.Reset();
+    if (path.empty()) {
+        return false;
+    }
+
+    // WIC biçimi imzadan tanır ve uzantıya bakmaz. LoadPng'den ayrı: burada
+    // bilinmeyen bir dosya açılıyor ve PNG bütünlük denetimi uygulanamaz.
     ComPtr<IStream> stream;
     const HRESULT hr = ::SHCreateStreamOnFileEx(
         path.c_str(), STGM_READ | STGM_SHARE_DENY_WRITE, FILE_ATTRIBUTE_NORMAL,
@@ -73,13 +107,6 @@ bool LoadPng(const std::wstring& path, Image& out) {
     }
 
     return DecodeFromStream(stream.Get(), out);
-}
-
-bool LoadImageFile(const std::wstring& path, Image& out) {
-    // Çözme yolu aynı: WIC biçimi imzadan tanır ve uzantıya bakmaz. Ayrı
-    // duran tek şey ANLAMI — burada bilinmeyen bir dosya açılıyor, orada
-    // kendi yazdığımız PNG doğrulanıyor.
-    return LoadPng(path, out);
 }
 
 }  // namespace crisp

@@ -100,6 +100,34 @@ void Settings::Clamp() {
         after.copyToClipboard = true;
     }
 
+    // AYNI KOMBİNASYON İKİ YUVADA OLAMAZ: ikincisi RegisterHotKey'de
+    // "zaten kayıtlı" ile düşer ve kullanıcıya başka bir uygulamanın tuşu
+    // aldığı söylenirdi. Sonraki yuva boşaltılır.
+    for (int i = 0; i < kHotkeySlots; ++i) {
+        if (!hotkeys[i].key.assigned()) {
+            continue;
+        }
+        for (int j = i + 1; j < kHotkeySlots; ++j) {
+            if (hotkeys[j].key.assigned() &&
+                hotkeys[j].key.packed() == hotkeys[i].key.packed()) {
+                hotkeys[j].key = Hotkey{};
+            }
+        }
+    }
+
+    // API anahtarı HTTP başlığına olduğu gibi yazılıyor: sondaki satır sonu
+    // ya da içerideki bir denetim karakteri başlık bloğunu bölerdi.
+    {
+        std::wstring cleaned;
+        cleaned.reserve(uploadApiKey.size());
+        for (const wchar_t ch : uploadApiKey) {
+            if (ch > 0x20 && ch != 0x7F) {
+                cleaned.push_back(ch);
+            }
+        }
+        uploadApiKey = std::move(cleaned);
+    }
+
     dimStrength = ClampUnsigned(dimStrength, 0u, 80u);
     blurStrength = ClampUnsigned(blurStrength, 10u, 400u);
     mosaicStrength = ClampUnsigned(mosaicStrength, 10u, 400u);

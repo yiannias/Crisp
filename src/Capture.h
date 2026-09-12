@@ -18,6 +18,10 @@
 
 namespace crisp {
 
+// Tek kenarın üst sınırı. 4 bayt/piksel çarpımı taşmasın diye; gerçek
+// ekranların çok üstünde ama kaydırmalı yakalamanın ulaşabileceği bir sınır.
+inline constexpr int kMaxImageSide = 32767;
+
 class Image {
 public:
     Image() noexcept = default;
@@ -25,8 +29,30 @@ public:
     Image(const Image&) = delete;
     Image& operator=(const Image&) = delete;
 
-    Image(Image&&) noexcept = default;
-    Image& operator=(Image&&) noexcept = default;
+    // TAŞINAN NESNE SIFIRLANIR: varsayılan taşıma m_bits ve boyutları yerinde
+    // bırakırdı; Valid() false dese de Bits()/Width() serbest bırakılmış bir
+    // bölgeyi ve bayat bir boyutu gösterirdi.
+    Image(Image&& other) noexcept
+        : m_bitmap(std::move(other.m_bitmap)),
+          m_bits(other.m_bits),
+          m_width(other.m_width),
+          m_height(other.m_height) {
+        other.m_bits = nullptr;
+        other.m_width = 0;
+        other.m_height = 0;
+    }
+    Image& operator=(Image&& other) noexcept {
+        if (this != &other) {
+            m_bitmap = std::move(other.m_bitmap);
+            m_bits = other.m_bits;
+            m_width = other.m_width;
+            m_height = other.m_height;
+            other.m_bits = nullptr;
+            other.m_width = 0;
+            other.m_height = 0;
+        }
+        return *this;
+    }
 
     // width/height pozitif olmalı. Başarısızlıkta nesne geçersiz kalır.
     [[nodiscard]] bool Create(int width, int height);

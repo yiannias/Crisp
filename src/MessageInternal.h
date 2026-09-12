@@ -5,6 +5,8 @@
 // aşıyordu, docs §9).
 #pragma once
 
+#include "UiCommon.h"
+
 #include "MessageWindow.h"
 
 #include <string>
@@ -36,8 +38,6 @@ struct MessageState {
     HBRUSH background = nullptr;
 };
 
-[[nodiscard]] int MsgScale(int value, unsigned dpi) noexcept;
-[[nodiscard]] HFONT MsgCreateUiFont(unsigned dpi, int pointSize, int weight);
 [[nodiscard]] int MsgMeasureText(const std::wstring& text, int width,
                                  HFONT font);
 void MsgPaint(HWND window, const MessageState& state);

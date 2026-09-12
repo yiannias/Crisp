@@ -46,7 +46,7 @@ void Paint(HWND window, State& state) {
     // Üstbilgi şeridi — kaydırılan içerikten ayrı durur ve sabittir.
     FillRectColor(memory, RECT{0, 0, width, header}, colors.surfaceAlt);
     FillRectColor(memory, RECT{0, header - 1, width, header}, colors.border);
-    DrawText(memory, Loc::Str(IDS_HISTORY_TITLE),
+    DrawLabel(memory, Loc::Str(IDS_HISTORY_TITLE),
              RECT{pad, 0, width - pad, header}, fontHeader, colors.text,
              DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
@@ -54,12 +54,12 @@ void Paint(HWND window, State& state) {
         wchar_t count[64];
         ::swprintf_s(count, L"%zu / %zu", state.tiles.size(),
                      state.store != nullptr ? state.store->Limit() : 0u);
-        DrawText(memory, count, RECT{pad, 0, width - pad, header}, fontDim,
+        DrawLabel(memory, count, RECT{pad, 0, width - pad, header}, fontDim,
                  colors.textDim, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
     }
 
     if (state.tiles.empty()) {
-        DrawText(memory, Loc::Str(IDS_HISTORY_EMPTY),
+        DrawLabel(memory, Loc::Str(IDS_HISTORY_EMPTY),
                  RECT{pad, header, width - pad, height}, fontLabel,
                  colors.textDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     } else {
@@ -146,11 +146,11 @@ void Paint(HWND window, State& state) {
                        tile.bounds.top + Scale(kThumbHeight, dpi),
                        tile.bounds.right - Scale(6, dpi),
                        tile.bounds.top + Scale(kThumbHeight + 20, dpi)};
-            DrawText(memory, TimeLabel(tile.entry), label, fontLabel, colors.text,
+            DrawLabel(memory, TimeLabel(tile.entry), label, fontLabel, colors.text,
                      DT_CENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
             label.top = label.bottom;
             label.bottom = tile.bounds.bottom - Scale(6, dpi);
-            DrawText(memory, SizeLabel(tile), label, fontDim, colors.textDim,
+            DrawLabel(memory, SizeLabel(tile), label, fontDim, colors.textDim,
                      DT_CENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
         }
         ::DeleteDC(imageDc);

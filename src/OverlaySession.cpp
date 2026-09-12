@@ -3,6 +3,7 @@
 // AYRI DOSYA: mesaj yordamı ve tampon hazırlığıyla birlikte Overlay.cpp ev
 // kuralının 400 satır sınırını aşıyordu (docs §9).
 #include "OverlayInternal.h"
+#include "UiCommon.h"
 
 #include "Geometry.h"
 #include "Localization.h"
@@ -44,7 +45,8 @@ constexpr const wchar_t* kWindowClass = L"CrispSelectionOverlay";
 
 OverlayResult RunSelectionOverlay(HINSTANCE instance, const Settings& settings,
                                   OverlayMode mode, bool preferWindowPick,
-                                  Image& frozen, const OcrLayout* layout) {
+                                  Image& frozen, const OcrLayout* layout,
+                                  bool showActionBar) {
     OverlayResult result{};
 
     if (!EnsureWindowClass(instance)) {
@@ -56,7 +58,12 @@ OverlayResult RunSelectionOverlay(HINSTANCE instance, const Settings& settings,
     // İMLEÇ DONDURULMUŞ GÖRÜNTÜYE ÇİZİLİR: kaplama açıldıktan sonra imleç
     // artık kullanıcının seçim imlecidir ve yakalama anındaki hâli yalnızca
     // burada, dondurma sırasında yakalanabilir.
-    if (!CaptureRect(screen, frozen, settings.includeCursor)) {
+    // Çağıran zaten dondurmuşsa (metin seçme: OCR bu görüntüde çalıştı) o
+    // görüntü kullanılır; boyutu sanal ekranla uyuşmuyorsa yeniden alınır.
+    const bool reuseFrozen = frozen.Valid() &&
+                             frozen.Width() == geom::Width(screen) &&
+                             frozen.Height() == geom::Height(screen);
+    if (!reuseFrozen && !CaptureRect(screen, frozen, settings.includeCursor)) {
         LogV(L"Ekran dondurulamadı");
         return result;
     }
@@ -92,7 +99,7 @@ OverlayResult RunSelectionOverlay(HINSTANCE instance, const Settings& settings,
     // YÜKLE DÜĞMESİ SERVİS SEÇİLİYSE ÇİZİLİR. Kapalı bir düğme göstermek,
     // kullanıcıya tıklayıp neden hiçbir şey olmadığını sorduran bir şey olurdu;
     // ayarlarda servis seçilmemişken yükleme diye bir seçenek de yok.
-    state.visual.showActionBar = (mode == OverlayMode::Region);
+    state.visual.showActionBar = (mode == OverlayMode::Region) && showActionBar;
     state.visual.uploadEnabled =
         UploadServiceFromId(settings.uploadService) != UploadService::None;
 
@@ -120,6 +127,10 @@ OverlayResult RunSelectionOverlay(HINSTANCE instance, const Settings& settings,
 
     if (window == nullptr) {
         LogV(L"Kaplama penceresi oluşturulamadı (hata %lu)", ::GetLastError());
+        // WM_CREATE -1 döndüyse WM_DESTROY bir WM_QUIT bırakmıştır; o mesaj
+        // buradaki döngüye değil uygulamanın ana döngüsüne düşer ve tepsi
+        // uygulaması sessizce kapanırdı.
+        DiscardPendingQuit();
         frozen = std::move(state.frozen);
         return result;
     }

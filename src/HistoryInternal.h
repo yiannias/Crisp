@@ -6,6 +6,8 @@
 // diğeri NE OLDUĞUNU anlatır.
 #pragma once
 
+#include "UiCommon.h"
+
 #include "Capture.h"
 #include "History.h"
 #include "HistoryWindow.h"
@@ -55,7 +57,6 @@ struct State {
     HistoryResult result;
 };
 
-[[nodiscard]] int Scale(int value, unsigned dpi) noexcept;
 
 // Diskteki kayıtları okuyup küçük resimleri üretir. Seçili öğe korunmaya
 // çalışılır; silinmişse en yakın komşuya kayar.
@@ -64,10 +65,8 @@ void ReloadTiles(HWND window, State& state);
 void Layout(HWND window, State& state);
 // --- Ortak çizim yardımcıları (HistoryWindow.cpp) ---------------------------
 // Hem yerleşim hem çizim kullanıyor ve ikisi ayrı dosyada.
-[[nodiscard]] HFONT CreateUiFont(unsigned dpi, int pointSize, int weight);
-void FillRectColor(HDC dc, const RECT& r, COLORREF color);
 [[nodiscard]] COLORREF Mix(COLORREF base, COLORREF over, int amount) noexcept;
-void DrawText(HDC dc, const std::wstring& text, RECT area, HFONT font,
+void DrawLabel(HDC dc, const std::wstring& text, RECT area, HFONT font,
               COLORREF color, UINT format);
 [[nodiscard]] std::wstring SizeLabel(const Tile& tile);
 [[nodiscard]] std::wstring TimeLabel(const HistoryEntry& entry);

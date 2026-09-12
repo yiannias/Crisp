@@ -15,25 +15,6 @@
 namespace crisp {
 namespace history {
 
-HFONT CreateUiFont(unsigned dpi, int pointSize, int weight) {
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(pointSize, static_cast<int>(dpi), 72);
-    font.lfWeight = weight;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    return ::CreateFontIndirectW(&font);
-}
-
-void FillRectColor(HDC dc, const RECT& r, COLORREF color) {
-    const HBRUSH brush = ::CreateSolidBrush(color);
-    if (brush == nullptr) {
-        return;
-    }
-    ::FillRect(dc, &r, brush);
-    ::DeleteObject(brush);
-}
-
 // İki rengi karıştırır; amount 0..255 arası ikinci rengin ağırlığıdır.
 // Alfa yerine önceden hesaplanmış katı renk kullanmak, kartları tek bir GDI
 // çağrısıyla çizmeyi mümkün kılar.
@@ -45,7 +26,7 @@ COLORREF Mix(COLORREF base, COLORREF over, int amount) noexcept {
     return RGB(r, g, b);
 }
 
-void DrawText(HDC dc, const std::wstring& text, RECT area, HFONT font,
+void DrawLabel(HDC dc, const std::wstring& text, RECT area, HFONT font,
               COLORREF color, UINT format) {
     const HGDIOBJ old = ::SelectObject(dc, font);
     ::SetBkMode(dc, TRANSPARENT);
@@ -120,10 +101,6 @@ std::wstring TimeLabel(const HistoryEntry& entry) {
     label += L' ';
     label += time;
     return label;
-}
-
-int Scale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
 }
 
 void ReloadTiles(HWND window, State& state) {

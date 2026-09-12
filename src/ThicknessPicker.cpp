@@ -1,6 +1,8 @@
 // ThicknessPicker.cpp — bkz. ThicknessPicker.h.
 #include "ThicknessPicker.h"
 
+#include "UiCommon.h"
+
 #include "AlphaLayer.h"
 #include "ColorSpace.h"
 #include "Geometry.h"
@@ -35,10 +37,6 @@ struct State {
     int height = 0;
     AlphaLayer chrome;
 };
-
-[[nodiscard]] int Scale(int value, unsigned dpi) noexcept {
-    return ::MulDiv(value, static_cast<int>(dpi), 96);
-}
 
 [[nodiscard]] RECT RowBounds(const State& state, int index) noexcept {
     const int pad = Scale(kPad, state.dpi);
@@ -110,13 +108,7 @@ void Paint(HWND window, State& state) {
     }
 
     // 2. AŞAMA — önizleme çizgileri ve etiketler.
-    LOGFONTW font{};
-    font.lfHeight = -::MulDiv(9, static_cast<int>(state.dpi), 72);
-    font.lfWeight = FW_NORMAL;
-    font.lfCharSet = DEFAULT_CHARSET;
-    font.lfQuality = CLEARTYPE_QUALITY;
-    ::wcscpy_s(font.lfFaceName, L"Segoe UI");
-    const HFONT created = ::CreateFontIndirectW(&font);
+    const HFONT created = CreateUiFont(state.dpi, 9, FW_NORMAL);
     const HGDIOBJ oldFont =
         created != nullptr ? ::SelectObject(memory, created) : nullptr;
     ::SetBkMode(memory, TRANSPARENT);

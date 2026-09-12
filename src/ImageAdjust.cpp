@@ -2,6 +2,7 @@
 #include "ImageAdjust.h"
 
 #include <cmath>
+#include <cstring>
 #include <vector>
 
 namespace crisp {
@@ -160,16 +161,10 @@ void Convolve3x3(Image& image, const int kernel[9], int divisor, int bias) {
     // KAYNAK KOPYASI ZORUNLU: yerinde çalışan bir konvolüsyon, henüz
     // işlenmemiş komşuların yerine zaten işlenmişleri okur ve sonuç sağ-aşağı
     // doğru bulaşır.
+    // Stride daima width * 4 (bkz. Image::Stride), yani tek bir kopya yeter.
     std::vector<uint32_t> source(static_cast<size_t>(width) *
                                  static_cast<size_t>(height));
-    const auto* bits = static_cast<const uint8_t*>(image.Bits());
-    for (int y = 0; y < height; ++y) {
-        const auto* row = reinterpret_cast<const uint32_t*>(
-            bits + static_cast<size_t>(y) * image.Stride());
-        for (int x = 0; x < width; ++x) {
-            source[static_cast<size_t>(y) * width + x] = row[x];
-        }
-    }
+    std::memcpy(source.data(), image.Bits(), source.size() * sizeof(uint32_t));
 
     auto sample = [&](int x, int y) -> uint32_t {
         // KENAR UZATMA: dışarısını sıfır saymak görüntünün çevresine koyu bir
@@ -216,11 +211,15 @@ void ApplySharpen(Image& image, int amount) {
     if (amount > 100) {
         amount = 100;
     }
-    // Merkez ağırlığı şiddetle büyür, çevre sabit kalır ve bölen toplamı
-    // korur; böylece şiddet 0'a yaklaşırken sonuç kimliğe yaklaşır.
-    const int centre = 8 + amount / 4;
-    const int kernel[9] = {0, -1, 0, -1, centre, -1, 0, -1, 0};
-    Convolve3x3(image, kernel, centre - 4, 0);
+    // Sonuç p + (amount/50)·Δ'dır; Δ pikselin dört komşusunun ortalamasından
+    // sapması. Çevre ağırlığı şiddetle büyür, merkez toplamı korur: şiddet
+    // 0'a yaklaşırken kimliğe yaklaşır, 100'de sapma iki katına çıkar.
+    //
+    // ESKİ HÂLİ TERSTİ: merkez büyüyüp çevre sabit kalınca şiddet 1'de sapma
+    // tam, 100'de yedide bir uygulanıyordu; sürgü artırdıkça yumuşatıyordu.
+    const int k = amount;
+    const int kernel[9] = {0, -k, 0, -k, 200 + 4 * k, -k, 0, -k, 0};
+    Convolve3x3(image, kernel, 200, 0);
 }
 
 }  // namespace crisp

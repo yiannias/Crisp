@@ -16,10 +16,6 @@
 #include "Util.h"
 #include "resource.h"
 
-// Sürüm tek yerde: res/app.rc'deki VERSIONINFO ile elle eşleştirilmesi
-// gereken bir ikinci kopya olmasın diye burada tanımlanır.
-#define CRISP_VERSION_TEXT L"0.3.0"
-
 #include <commctrl.h>
 
 #include <string>
@@ -83,7 +79,10 @@ bool App::Initialize(HINSTANCE instance) {
     }
 
     if (!m_tray.Add(m_window, instance)) {
-        return false;
+        // Simge olmadan da kısayollar çalışır; Explorer yeniden başladığında
+        // TaskbarCreated ile simge yerine konur. Kapanmak, kullanıcıyı
+        // hiçbir şey vermeden bırakmak olurdu.
+        LogV(L"Tepsi simgesi eklenemedi; kısayollarla devam ediliyor");
     }
 
     const int failed = m_hotkeys.Apply(m_window, m_settings);
@@ -238,8 +237,11 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
         case WM_COPYDATA: {
             const auto* data = reinterpret_cast<const COPYDATASTRUCT*>(lParam);
             if (data != nullptr && data->lpData != nullptr && data->cbData > 0) {
-                const std::wstring path(static_cast<const wchar_t*>(data->lpData),
-                                        data->cbData / sizeof(wchar_t));
+                // cbData sonlandırıcıyı da içerir; gömülü bir L'\0' dosya
+                // adına ve başlığa görünmez bir karakter olarak taşınırdı.
+                const auto* chars = static_cast<const wchar_t*>(data->lpData);
+                const std::wstring path(
+                    chars, ::wcsnlen(chars, data->cbData / sizeof(wchar_t)));
                 OpenImageFile(path);
             }
             return TRUE;

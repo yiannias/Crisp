@@ -97,6 +97,10 @@ private:
         }
         ::Sleep(10);
     }
+    // İşlem hâlâ sürüyor; iptal edilip kapatılmazsa bitmap ve akış arkada
+    // yaşamaya devam eder.
+    (void)info->Cancel();
+    (void)info->Close();
     return HRESULT_FROM_WIN32(ERROR_TIMEOUT);
 }
 

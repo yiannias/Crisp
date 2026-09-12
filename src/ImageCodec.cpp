@@ -316,11 +316,21 @@ bool SaveImage(const Image& image, const std::wstring& path, ImageFormat format,
     }
 
     if (!EncodeToStream(image, stream.Get(), format, quality)) {
+        // STGM_CREATE dosyayı kodlamadan ÖNCE açtı; başarısız kodlama diskte
+        // sıfır ya da yarım baytlık bir dosya bırakır ve MakeUniquePath bir
+        // sonraki kayıtta o adı dolu sayar. Akış kapatılıp dosya silinir.
+        stream.Release();
+        ::DeleteFileW(path.c_str());
         return false;
     }
 
     hr = stream->Commit(STGC_DEFAULT);
-    return SUCCEEDED(hr);
+    if (FAILED(hr)) {
+        stream.Release();
+        ::DeleteFileW(path.c_str());
+        return false;
+    }
+    return true;
 }
 
 bool IsFormatAvailable(ImageFormat format) {
@@ -338,17 +348,22 @@ ImageFormat FormatFromPath(const std::wstring& path) noexcept {
     if (dot == std::wstring::npos) {
         return ImageFormat::Png;
     }
-    std::wstring extension = path.substr(dot + 1);
-    for (wchar_t& c : extension) {
-        c = static_cast<wchar_t>(::towlower(c));
+    // Nokta son dizin ayracından önce kalıyorsa uzantı yoktur (C:\a.b\file).
+    const size_t slash = path.find_last_of(L"\\/");
+    if (slash != std::wstring::npos && slash > dot) {
+        return ImageFormat::Png;
     }
-    if (extension == L"jpg" || extension == L"jpeg") {
-        return ImageFormat::Jpeg;
+    // noexcept içinde ayırma yok: uzantı küçük bir tampona küçük harfle
+    // kopyalanır; sığmıyorsa bilinen bir biçim değildir.
+    wchar_t extension[8]{};
+    size_t n = 0;
+    for (size_t i = dot + 1; i < path.size(); ++i) {
+        if (n + 1 >= std::size(extension)) {
+            return ImageFormat::Png;
+        }
+        extension[n++] = static_cast<wchar_t>(::towlower(path[i]));
     }
-    if (extension == L"webp") {
-        return ImageFormat::WebP;
-    }
-    return ImageFormat::Png;
+    return FormatFromString(extension);
 }
 
 const wchar_t* ExtensionForFormat(ImageFormat format) noexcept {

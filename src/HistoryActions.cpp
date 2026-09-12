@@ -142,6 +142,8 @@ void DeleteSelected(HWND window, State& state) {
         state.selected = fallback < static_cast<int>(state.tiles.size())
                              ? fallback
                              : static_cast<int>(state.tiles.size()) - 1;
+        // Klavyeyle silerken yeni seçim ekran dışında kalabilir.
+        EnsureVisible(window, state);
     }
     ::InvalidateRect(window, nullptr, FALSE);
 }

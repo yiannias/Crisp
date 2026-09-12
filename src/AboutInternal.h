@@ -5,6 +5,9 @@
 // aşıyordu, docs §9).
 #pragma once
 
+#include "UiCommon.h"
+#include "Version.h"
+
 #include <windows.h>
 
 namespace crisp {
@@ -18,7 +21,7 @@ inline constexpr int kIconSide = 72;
 
 inline constexpr const wchar_t* kRepositoryUrl =
     L"https://github.com/shadesofdeath/Crisp";
-inline constexpr const wchar_t* kVersionText = L"0.3.0";
+inline constexpr const wchar_t* kVersionText = CRISP_VERSION_TEXT;
 
 struct AboutState {
     HICON icon = nullptr;
@@ -29,7 +32,6 @@ struct AboutState {
     bool closeHot = false;
 };
 
-[[nodiscard]] int Scale(int value, unsigned dpi) noexcept;
 void Paint(HWND window, AboutState& state);
 
 }  // namespace about

@@ -43,6 +43,13 @@ HWND g_hookTarget = nullptr;
     if ((::GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0) {
         modifiers |= MOD_SHIFT;
     }
+    // Win TUŞU DA BİR DEĞİŞTİRİCİ: yutuluyor ama kodlanmıyordu, Win+S basan
+    // kullanıcı çıplak bir "S" kısayolu kaydediyor ve harfi sistem genelinde
+    // yazıdan alıyordu. RegisterHotKey MOD_WIN'i destekler.
+    if ((::GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
+        (::GetAsyncKeyState(VK_RWIN) & 0x8000) != 0) {
+        modifiers |= MOD_WIN;
+    }
     return modifiers;
 }
 
@@ -278,6 +285,9 @@ std::wstring HotkeyText(const Hotkey& hotkey) {
     }
     if ((hotkey.modifiers & MOD_SHIFT) != 0) {
         text += L"Shift + ";
+    }
+    if ((hotkey.modifiers & MOD_WIN) != 0) {
+        text += L"Win + ";
     }
     const std::wstring name = KeyName(hotkey.key);
     if (name.empty()) {

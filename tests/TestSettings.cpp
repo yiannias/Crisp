@@ -319,3 +319,28 @@ CRISP_TEST(Settings, EffectiveSaveFolder_bos_ise_varsayilan_verir) {
     s.saveFolder = L"E:\\Ozel";
     CHECK_STR(s.EffectiveSaveFolder(), L"E:\\Ozel");
 }
+
+CRISP_TEST(Settings, Clamp_ayni_kisayolu_ikinci_yuvadan_siler) {
+    // Aynı kombinasyon iki yuvada olsaydı ikincisi RegisterHotKey'de
+    // "zaten kayıtlı" ile düşer ve kullanıcıya başka bir uygulamanın tuşu
+    // aldığı söylenirdi.
+    Settings s;
+    s.hotkeys[0].key = Hotkey{MOD_CONTROL | MOD_SHIFT, 'S'};
+    s.hotkeys[0].action = HotkeyAction::Region;
+    s.hotkeys[3].key = Hotkey{MOD_CONTROL | MOD_SHIFT, 'S'};
+    s.hotkeys[3].action = HotkeyAction::Window;
+    s.hotkeys[5].key = Hotkey{MOD_CONTROL | MOD_ALT, VK_F9};   // varsayılanlarla çakışmaz
+    s.Clamp();
+    CHECK(s.hotkeys[0].key.assigned());
+    CHECK(!s.hotkeys[3].key.assigned());   // sonraki yuva boşaldı
+    CHECK(s.hotkeys[5].key.assigned());    // farklı tuş dokunulmadı
+}
+
+CRISP_TEST(Settings, Clamp_api_anahtarindan_denetim_karakterlerini_ayiklar) {
+    // Anahtar HTTP başlığına olduğu gibi yazılıyor; sondaki satır sonu başlık
+    // bloğunu bölerdi. Görünür karakterler olduğu gibi kalır.
+    Settings s;
+    s.uploadApiKey = L"  ab\r\ncd\tef \x01g\n";
+    s.Clamp();
+    CHECK_STR(s.uploadApiKey, L"abcdefg");
+}
