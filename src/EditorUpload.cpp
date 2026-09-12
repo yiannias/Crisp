@@ -17,6 +17,8 @@
 #include "UploadLog.h"
 #include "UploadText.h"
 #include "Messages.h"
+#include "QrPin.h"
+#include "ShortLink.h"
 #include "Util.h"
 #include "resource.h"
 
@@ -70,12 +72,23 @@ void BeginUpload(HWND window, State& state) {
     ShowFlash(window, state, Loc::Str(IDS_UPLOAD_WORKING));
 
     const std::wstring key = state.settings.uploadApiKey;
+    const bool shorten = state.settings.shortenLinks;
 
     // AYRILMIŞ İŞ PARÇACIĞI, ÇÜNKÜ KİMSE ONU BEKLEMİYOR. Pencere yükleme
     // biterken kapanmış olabilir; o durumda PostMessageW başarısız olur, yük
     // burada silinir ve iş parçacığı sessizce biter.
-    std::thread([window, service, key, png]() {
-        const UploadResult result = UploadPng(service, key, *png, L"crisp.png");
+    std::thread([window, service, key, png, shorten]() {
+        UploadResult result = UploadPng(service, key, *png, L"crisp.png");
+
+        // Kısaltma aynı iş parçacığında, yüklemenin hemen ardından; gerekçesi
+        // AppUpload.cpp'de. Başarısızlık uzun bağlantıyla sürer.
+        if (result.ok && shorten) {
+            std::wstring shortLink;
+            if (ShortenLink(result.link, shortLink)) {
+                LogV(L"Kısaltma: %s -> %s", result.link.c_str(), shortLink.c_str());
+                result.link = shortLink;
+            }
+        }
 
         // Defter BURADA yazılır, pencere mesajı beklenmeden: yükleme bitmişse
         // kayıt da bitmiştir, ve pencere bu arada kapanmış olabilir.
@@ -118,9 +131,16 @@ void FinishUpload(HWND window, State& state, LPARAM lParam) {
     // zaten yapacağı ilk şey.
     if (!CopyTextToClipboard(payload->text.c_str(), window)) {
         ShowFlash(window, state, payload->text);
-        return;
+    } else {
+        ShowFlash(window, state, Loc::Str(IDS_UPLOAD_COPIED) + L" — " + payload->text);
     }
-    ShowFlash(window, state, Loc::Str(IDS_UPLOAD_COPIED) + L" — " + payload->text);
+
+    // QR kartı pano sonucundan bağımsız: kopyalama başarısız olsa da kod
+    // bağlantıyı telefona taşır.
+    if (state.settings.showQrAfterUpload &&
+        !PinQrForLink(state.instance, window, payload->text)) {
+        LogV(L"QR kartı iğnelenemedi");
+    }
 }
 
 }  // namespace editor
