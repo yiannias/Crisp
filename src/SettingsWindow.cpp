@@ -35,9 +35,14 @@ public:
     void Advance(int amount) noexcept { m_y += amount; }
 
     void Group(const wchar_t* text) {
-        if (!m_state.groups.empty()) {
+        // BOŞLUK SÜTUNUN İLK GRUBUNDAN ÖNCE DEĞİL, sonrakilerden önce. Bayrak
+        // pencere geneline aitken yalnızca en soldaki sütunun ilk başlığı
+        // boşluksuz kalıyor ve diğer sütunların başlıkları ondan 18 piksel
+        // aşağıda başlıyordu.
+        if (!m_first) {
             m_y += Scale(kGroupGap, m_state.dpi);
         }
+        m_first = false;
         GroupTitle title;
         title.text = text;
         title.bounds =
@@ -156,6 +161,7 @@ private:
     int m_left;
     int m_y;
     int m_width;
+    bool m_first = true;
 };
 
 void ApplyFont(HWND parent, HFONT font) {

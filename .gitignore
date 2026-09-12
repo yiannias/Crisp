@@ -39,3 +39,6 @@ Crisp.ini
 !packaging/Assets/*.png
 !docs/screenshots/*.png
 !docs/images/*.png
+
+# Claude Code oturum dosyalari ve ajan calisma agaclari
+.claude/
