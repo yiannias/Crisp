@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added — step guide
+
+A *Step guide* submenu in the tray: *Add a step* runs the ordinary region or
+window overlay and keeps the capture; *Finish the guide* stacks the steps into
+one image with numbered badges and a common column width, then hands it to the
+normal after-capture path. Both actions can take a hotkey (`guide-step`,
+`guide-finish` on the command line). The composer lives in `crisp_core`
+(`GuideCompose`) and is tested pixel by pixel.
+
+### Added — editor text tool with a caret
+
+The text tool was append-only. It now has a caret, arrow and word navigation,
+Shift selection, click-to-place, `Ctrl+A/C/X/V`, and the IME window follows the
+caret. The buffer logic is a core module (`TextEdit`) with surrogate-pair-safe
+edits and its own tests; the editor only draws it.
+
+### Added — sideways scrolling capture and sticky footers
+
+If the first wheel step does not move the page vertically, Crisp tries a
+horizontal step and stitches sideways. Rows that never change across frames —
+a fixed footer — are detected and copied once, at the bottom. Sticky headers
+were already skipped by construction; the search band now avoids both.
+
+### Added — colour formats
+
+*Settings > Capture > Colour format*: hex, `rgb()`, `hsl()`, a CSS custom
+property, or the nearest Tailwind CSS v3.4 colour name (244 entries, matched
+in CIE L\*a\*b\*). The picker's notification shows a swatch and the text.
+
+### Added — short links and a QR code after uploading
+
+Two off-by-default switches under *Settings > Upload*. *Shorten the link* asks
+is.gd, then TinyURL, and copies the short address. *Show a QR code* pins a
+white card with the code, the link and a hint to the bottom-right of the
+screen. The QR encoder is Crisp's own — byte mode, versions 1–40, levels
+L/M/Q/H, Reed–Solomon, all eight masks with penalty scoring — and the test
+suite re-reads the matrix it produces; three rendered codes were also decoded
+with zxing-cpp and matched their input exactly.
+
+### Added — pins: always on top, frame, click-through, hide all
+
+Per-pin switches in the right-click menu (`T` and `F` keys for the first two),
+persisted with the pin. *Hide or show all pins* in the tray menu and as a
+hotkey (`toggle-pins`) takes every pin off the screen and back with one press —
+also the way out of a click-through pin.
+
+### Added — update check
+
+Off by default. *Check for updates at startup* asks the GitHub releases API
+fifteen seconds after start and only speaks if a newer version exists (a tray
+menu line, and a message box when notifications are on); *Check for updates…*
+in the tray menu reports either way. Only `https://github.com/` links are
+opened. This is the first network use outside uploads, and it stays opt-in
+for the same reason uploads do.
+
+### Changed
+
+- The settings window has four columns; three no longer fit.
+- The repository is a git repository with a `.gitattributes` keeping sources
+  LF.
+
 ### Fixed
 
 - **Sharpen was inverted.** The kernel grew the centre weight with strength,

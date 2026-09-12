@@ -74,6 +74,26 @@ produce a picture made of two unrelated strips.
 Not every window scrolls from a wheel event, and Crisp says so rather than
 handing back a single frame dressed up as a long one.
 
+Two things it handles on its own:
+
+- **Sideways pages.** If the first wheel step moves nothing vertically, Crisp
+  tries a horizontal wheel step; a wide table or a timeline comes back as one
+  wide image. The notification says which way it went.
+- **Sticky footers.** Rows that never move — a fixed bottom bar, a cookie
+  banner — are detected across frames and copied once, at the bottom, instead
+  of once per frame. Sticky headers were never duplicated; now the footer
+  is not either.
+
+## Step guide
+
+A short tutorial is a handful of screenshots in order, numbered. The tray menu
+has a *Step guide* submenu: **Add a step** opens the ordinary region or window
+overlay and keeps the result instead of delivering it; **Finish the guide**
+stacks every step into one image — numbered badges, a thin frame, wide steps
+scaled down to a common column — and hands it to the normal after-capture path,
+so it goes wherever a capture goes. **Discard** throws the steps away. Both
+*add* and *finish* can be bound to hotkeys. Thirty steps is the ceiling.
+
 ## Other captures
 
 - **Window** — the same overlay with hover highlighting forced on. Capture uses
@@ -115,7 +135,11 @@ line and arrow to 45 degrees.
   finding out it was not enough after you let go means looking at the thing you
   were hiding one more time. Crop dims what will go rather than outlining what
   will stay.
-- The text tool appends only: no caret navigation, no selection.
+- The text tool is a real text box: arrows move the caret, `Shift` selects,
+  `Ctrl+A`, `Ctrl+C`, `Ctrl+X`, `Ctrl+V`, `Home`/`End`, `Ctrl+Left/Right` by
+  word, click to place the caret, `Shift`+click to extend. Enter adds a line,
+  `Ctrl+Enter` commits, `Esc` cancels. The IME candidate window follows the
+  caret.
 - Crop, rotate, scale and every effect bake the annotations into pixels and clear
   the shape list. One undo reverses both.
 - Drop an image file on the window to edit it without capturing anything first.
@@ -123,6 +147,15 @@ line and arrow to 45 degrees.
 Files are written as PNG, JPEG or WebP through Windows Imaging Component. WebP
 needs the optional Windows encoder component; without it the option is hidden,
 and a configured WebP quietly saves as PNG rather than losing the capture.
+
+## Colour picker
+
+`Pick a colour` in the tray menu freezes the screen with the magnifier forced
+on; click a pixel and the colour is on the clipboard in the format chosen under
+*Settings > Capture > Colour format*: `#1E90FF`, `rgb(30, 144, 255)`,
+`hsl(210, 100%, 56%)`, a CSS custom property (`--color-1e90ff: #1E90FF;`), or
+the nearest Tailwind CSS colour name (`sky-500`, measured in CIE L\*a\*b\*, the
+full v3.4 palette). The notification shows a swatch and the text.
 
 ## OCR
 
@@ -142,7 +175,18 @@ Puts a capture in a topmost layered window: drag anywhere on it, wheel to zoom,
 double-click for actual size, right-click for copy, save as, opacity and close.
 Its Save As is PNG-only regardless of your chosen format. Off by default.
 
-Pins survive a restart: position, zoom and opacity go to
+The right-click menu also has three switches per pin:
+
+- **Always on top** — off, and the pin stacks like any other window (`T`).
+- **Show a frame** — a 2 px accent border, for a pin that blends into what is
+  behind it (`F`).
+- **Click-through** — the mouse passes straight through to whatever is under
+  the pin. A click-through pin cannot be right-clicked any more, which is the
+  point; `Esc` while it has focus closes it, and **Hide or show all pins** in
+  the tray menu (or its hotkey) takes every pin off the screen and brings them
+  back with one press.
+
+Pins survive a restart: position, zoom, opacity and those three switches go to
 `%LOCALAPPDATA%\Crisp\Pins` as plain PNGs plus a tab-separated index, and come
 back when Crisp next starts. Killing the process from Task Manager still loses
 them — the save runs on a clean exit.
@@ -199,13 +243,26 @@ says how long its links live and what it costs you:
 - Recent links live in the tray menu: the last ten, click one to copy it again.
 - Slow services take fifteen to twenty seconds. A notification stays up for the
   whole wait, counting the seconds, and the result replaces it.
+- **Shorten the link** asks is.gd (TinyURL as a fallback) for a short address
+  once the upload is done and copies that instead. **Show a QR code** pins a
+  small white card — the code, the link and a hint — to the bottom-right of the
+  screen so a phone can open the link by scanning it. Both are off by default
+  and both are under *Settings > Upload*. The QR encoder is Crisp's own
+  (byte mode, versions 1–40, all four correction levels) and is checked against
+  an independent decoder in the test suite.
 
-Nothing else here touches the network: no update check, no telemetry, no crash
-reporting.
+The only other thing that touches the network is the **update check**, and it is
+off by default: *Settings > General > Check for updates at startup* asks the
+GitHub releases API once, fifteen seconds after start, and only speaks if a
+newer version exists — a *Update available* line in the tray menu and, with
+notifications on, one message box. *Check for updates…* in the tray menu does
+the same on demand and reports either way. Only `https://github.com/` links are
+ever opened. No telemetry, no crash reporting.
 
 ## Keys, tray and command line
 
-Six global hotkey slots, and any slot can be bound to any of the eleven actions.
+Six global hotkey slots, and any slot can be bound to any of the eighteen
+actions.
 Four ship bound: `Ctrl+Shift+S` region, `Ctrl+Shift+F` monitor, `Ctrl+Shift+W`
 window, `Ctrl+Shift+D` delayed. Two ship empty.
 
@@ -219,8 +276,9 @@ window, `Ctrl+Shift+D` delayed. Two ship empty.
 - Backspace or Delete clears a slot. A slot set to no action keeps its key but
   never registers it, leaving the combination free for other applications.
 
-Active window, all monitors, last region, text select, region OCR, colour picker
-and history have no default hotkey. All of them are in the tray menu, and all of
+Active window, all monitors, last region, text select, region OCR, colour
+picker, history, scrolling capture, the two step-guide actions and *hide or show
+all pins* have no default hotkey. All of them are in the tray menu, and all of
 them are on the command line:
 
 ```
@@ -229,7 +287,8 @@ Crisp.exe -region
 
 `region`, `window`, `active`, `monitor` (or `fullscreen`), `all`, `last`,
 `delayed`, `delayed-window`, `delayed-monitor`, `scroll`, `text`, `ocr`, `color`,
-`history`. A `/` prefix works as well as `-`.
+`history`, `guide-step`, `guide-finish`, `toggle-pins`. A `/` prefix works as
+well as `-`.
 An unknown or missing argument means region capture; a bare path opens that image
 in the editor.
 
