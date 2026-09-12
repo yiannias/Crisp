@@ -7,10 +7,12 @@
 #include "App.h"
 
 #include "ClipboardImage.h"
+#include "ColorSpace.h"
 #include "Localization.h"
 #include "MessageWindow.h"
 #include "Ocr.h"
 #include "Overlay.h"
+#include "Toast.h"
 #include "Util.h"
 #include "resource.h"
 
@@ -123,14 +125,34 @@ void App::PickColorToClipboard() {
         return;
     }
 
-    const uint32_t color = result.pickedColor;
-    wchar_t hex[16];
-    ::swprintf_s(hex, L"#%02X%02X%02X", (color >> 16) & 0xFFu,
-                 (color >> 8) & 0xFFu, color & 0xFFu);
+    // Kaplama 0xAARRGGBB verir; COLORREF ise BGR sıralıdır. Kanalları tek tek
+    // çekmek, iki düzenin sessizce karışmasını önler.
+    const uint32_t argb = result.pickedColor;
+    const COLORREF color = RGB((argb >> 16) & 0xFFu, (argb >> 8) & 0xFFu,
+                               argb & 0xFFu);
 
-    if (!CopyTextToClipboard(hex, m_window)) {
+    // BİÇİM KULLANICININ SEÇİMİ: tasarımcı Tailwind adı, CSS yazan rgb() ister;
+    // sabit hex her ikisini de elle çevirmeye zorluyordu.
+    const std::wstring text =
+        FormatColor(color, ColorFormatFromId(m_settings.colorFormat.c_str()));
+
+    if (!CopyTextToClipboard(text.c_str(), m_window)) {
         LogV(L"Renk panoya kopyalanamadı");
+        return;
     }
+
+    if (!m_settings.showNotification) {
+        return;
+    }
+    // Bildirimdeki küçük resim rengin kendisidir. 1×1 yeterli görünse de
+    // bildirim küçük resmi BÜYÜTMEZ (yalnızca sığdırır ve kırpar); tek piksel
+    // görünmez kalırdı. Kare, küçük resim alanından her DPI'da büyük tutulur.
+    Image swatch;
+    if (swatch.Create(256, 256)) {
+        swatch.Fill(0xFF000000u | (argb & 0x00FFFFFFu));
+    }
+    ShowCaptureToast(m_instance, swatch, Loc::Str(IDS_TOAST_COLOR_COPIED), text,
+                     std::wstring());
 }
 
 
