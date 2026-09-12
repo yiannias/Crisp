@@ -75,6 +75,7 @@ set(CRISP_CORE_SOURCES
     src/PinStore.cpp
     src/UpdateCheck.cpp
     src/GuideCompose.cpp
+    src/GuideDraw.cpp
     src/QrCode.cpp
     src/ShortLink.cpp
     src/TextEdit.cpp
