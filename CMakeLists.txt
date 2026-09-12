@@ -85,7 +85,6 @@ set(CRISP_CORE_SOURCES
     src/QrTables.cpp
     src/QrEncodeData.cpp
     src/QrMask.cpp
-    src/HttpGet.cpp
     src/ShortLink.cpp
     src/TextEdit.cpp
 )
@@ -121,7 +120,6 @@ set(CRISP_CORE_HEADERS
     src/GuideCompose.h
     src/QrCode.h
     src/QrInternal.h
-    src/HttpGet.h
     src/ShortLink.h
     src/TextEdit.h
 )
