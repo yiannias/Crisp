@@ -217,3 +217,250 @@ CRISP_TEST(Stitch, Satir_farki_ayni_satirda_sifir) {
     CHECK_EQ(RowDifference(a, -1, a, 0), UINT64_MAX);
     CHECK_EQ(RowDifference(a, 0, a, 40), UINT64_MAX);
 }
+
+// ---------------------------------------------------------------------------
+// Yatay
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// MakeFrame'in aynadaki görüntüsü: desen SÜTUNA göre değişir ve `offset`
+// sayfanın ne kadar sağa kaydırıldığıdır.
+[[nodiscard]] bool MakeWideFrame(int width, int height, int offset, Image& out) {
+    if (!out.Create(width, height)) {
+        return false;
+    }
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const int column = x + offset;
+            const uint32_t r = static_cast<uint32_t>((column * 7 + y * 3) & 0xFF);
+            const uint32_t g = static_cast<uint32_t>((column * 13) & 0xFF);
+            const uint32_t b = static_cast<uint32_t>((y * 5 + column * 2) & 0xFF);
+            out.SetPixel(x, y, 0xFF000000u | (r << 16) | (g << 8) | b);
+        }
+    }
+    return true;
+}
+
+// Karelerin [top, top + rows) satırlarını hepsinde AYNI sabit desenle ezer:
+// yapışık başlık ya da altlık taklidi.
+void PaintStickyRows(std::vector<Image>& frames, int top, int rows) {
+    for (Image& frame : frames) {
+        for (int y = top; y < top + rows; ++y) {
+            for (int x = 0; x < frame.Width(); ++x) {
+                frame.SetPixel(x, y, 0xFF000000u |
+                                         static_cast<uint32_t>((y * 3 + x) & 0xFF));
+            }
+        }
+    }
+}
+
+// `count` kare, her biri `shift` satır aşağı kaymış.
+[[nodiscard]] bool MakeScrolledFrames(int width, int height, int shift,
+                                      int count, std::vector<Image>& frames) {
+    for (int i = 0; i < count; ++i) {
+        Image frame;
+        if (!MakeFrame(width, height, i * shift, frame)) {
+            return false;
+        }
+        frames.push_back(std::move(frame));
+    }
+    return true;
+}
+
+}  // namespace
+
+CRISP_TEST(Stitch, Yatay_bilinen_kaydirmayi_geri_bulur) {
+    // Dikeyin aynası: 200 sütunluk karede şerit 66'dan başlar, 40 sütun sürer,
+    // bulunabilir en büyük kaydırma 94.
+    for (const int shift : {1, 5, 40, 94}) {
+        Image a;
+        Image b;
+        CHECK(MakeWideFrame(200, 64, 0, a));
+        CHECK(MakeWideFrame(200, 64, shift, b));
+        CHECK_EQ(FindHorizontalShift(a, b, 40), shift);
+    }
+    for (const int shift : {95, 150, 199}) {
+        Image a;
+        Image b;
+        CHECK(MakeWideFrame(200, 64, 0, a));
+        CHECK(MakeWideFrame(200, 64, shift, b));
+        CHECK_EQ(FindHorizontalShift(a, b, 40), 0);
+    }
+}
+
+CRISP_TEST(Stitch, Yatay_alakasiz_kareler_uydurmaz) {
+    Image a;
+    Image b;
+    Image same;
+    CHECK(MakeWideFrame(200, 64, 0, a));
+    CHECK(MakeFlat(200, 64, 0xFF102030u, b));
+    CHECK(MakeWideFrame(200, 64, 0, same));
+    CHECK_EQ(FindHorizontalShift(a, b, 40), 0);
+    CHECK_EQ(FindHorizontalShift(a, same, 40), 0);
+    // Dikey desenli bir kare yatayda kaymış sayılmaz: eksenler karışmıyor.
+    Image tall;
+    Image tallShifted;
+    CHECK(MakeFrame(200, 64, 0, tall));
+    CHECK(MakeFrame(200, 64, 20, tallShifted));
+    CHECK_EQ(FindHorizontalShift(tall, tallShifted, 40), 0);
+}
+
+CRISP_TEST(Stitch, Dort_kare_tek_genis_goruntu_olur) {
+    const int width = 200;
+    const int height = 48;
+    const int shift = 40;
+
+    std::vector<Image> frames;
+    for (int i = 0; i < 4; ++i) {
+        Image frame;
+        CHECK(MakeWideFrame(width, height, i * shift, frame));
+        frames.push_back(std::move(frame));
+    }
+
+    Image out;
+    size_t used = 0;
+    CHECK(StitchHorizontal(frames, 40, out, &used));
+    CHECK_EQ(used, static_cast<size_t>(4));
+    CHECK_EQ(out.Height(), height);
+    CHECK_EQ(out.Width(), width + shift * 3);
+
+    // Kesintisiz geniş sayfanın kendisi olmalı; sütun sütun.
+    Image whole;
+    CHECK(MakeWideFrame(out.Width(), height, 0, whole));
+    for (int x = 0; x < out.Width(); ++x) {
+        CHECK_EQ(ColumnDifference(out, x, whole, x), static_cast<uint64_t>(0));
+    }
+
+    // Tek kare ve boş liste, dikeyle aynı sözleşme.
+    std::vector<Image> one;
+    Image only;
+    CHECK(MakeWideFrame(60, 30, 0, only));
+    one.push_back(std::move(only));
+    CHECK(StitchHorizontal(one, 20, out, nullptr));
+    CHECK_EQ(out.Width(), 60);
+    CHECK(!StitchHorizontal(std::vector<Image>{}, 20, out, nullptr));
+}
+
+// ---------------------------------------------------------------------------
+// Yapışık başlık ve altlık
+// ---------------------------------------------------------------------------
+
+CRISP_TEST(Stitch, Yapisik_altlik_ve_baslik_tespit_edilir) {
+    std::vector<Image> frames;
+    CHECK(MakeScrolledFrames(48, 300, 40, 4, frames));
+    CHECK_EQ(DetectStickyFooter(frames), 0);
+    CHECK_EQ(DetectStickyHeader(frames), 0);
+
+    PaintStickyRows(frames, 300 - 30, 30);
+    PaintStickyRows(frames, 0, 50);
+    CHECK_EQ(DetectStickyFooter(frames), 30);
+    CHECK_EQ(DetectStickyHeader(frames), 50);
+
+    // Altlığı BİR karede bir piksel farklı yap: o satır ve üstü artık altlık
+    // değil, yalnızca altındaki satırlar sayılır.
+    frames[2].SetPixel(3, 300 - 10, 0xFF00FF00u);
+    CHECK_EQ(DetectStickyFooter(frames), 9);
+
+    // Tek kare: karşılaştırılacak bir şey yok.
+    std::vector<Image> one;
+    CHECK(MakeScrolledFrames(48, 300, 40, 1, one));
+    PaintStickyRows(one, 200, 100);
+    CHECK_EQ(DetectStickyFooter(one), 0);
+
+    // Üçte birden fazlası aynıysa sınırda kesilir: 150 boyanır, 100 döner.
+    std::vector<Image> tall;
+    CHECK(MakeScrolledFrames(48, 300, 40, 3, tall));
+    PaintStickyRows(tall, 150, 150);
+    CHECK_EQ(DetectStickyFooter(tall), 100);
+}
+
+CRISP_TEST(Stitch, Yuksek_altlik_aramayi_daraltmazsa_kaydirma_kacar) {
+    // 300 satırlık karede 100 satırlık altlık: üç parametreli arama şeridi
+    // 100'den başlatır ve 80'lik bir kaydırmada `previous`taki karşılık
+    // (180..220) altlığa taşar — aday elenir. Altlığı bilen arama 0..200
+    // aralığında çalışır ve 80'i bulur.
+    std::vector<Image> frames;
+    CHECK(MakeScrolledFrames(48, 300, 80, 2, frames));
+    PaintStickyRows(frames, 200, 100);
+    CHECK_EQ(FindVerticalShift(frames[0], frames[1], 40), 0);
+    CHECK_EQ(FindVerticalShift(frames[0], frames[1], 40, 0, 100), 80);
+    // Sıfır/sıfır ile üç parametreli sürümün aynısı.
+    std::vector<Image> plain;
+    CHECK(MakeScrolledFrames(48, 300, 80, 2, plain));
+    CHECK_EQ(FindVerticalShift(plain[0], plain[1], 40, 0, 0), 80);
+}
+
+CRISP_TEST(Stitch, Yapisik_altlik_bir_kez_ve_en_alta_gelir) {
+    const int width = 48;
+    const int height = 300;
+    const int footer = 30;
+    const int shift = 40;
+    const int count = 5;
+
+    std::vector<Image> frames;
+    CHECK(MakeScrolledFrames(width, height, shift, count, frames));
+    PaintStickyRows(frames, height - footer, footer);
+
+    Image out;
+    size_t used = 0;
+    CHECK(StitchVertical(frames, 40, StitchOptions{}, out, &used));
+    CHECK_EQ(used, static_cast<size_t>(count));
+
+    // İçerik: (height - footer) + 4 * shift = 430; artı altlık bir kez = 460.
+    const int content = (height - footer) + shift * (count - 1);
+    CHECK_EQ(out.Height(), content + footer);
+
+    // [0, content) kesintisiz sayfa — altlık hiçbir yerde araya girmemiş.
+    Image whole;
+    CHECK(MakeFrame(width, content, 0, whole));
+    for (int y = 0; y < content; ++y) {
+        CHECK_EQ(RowDifference(out, y, whole, y), static_cast<uint64_t>(0));
+    }
+    // [content, content + footer) son karenin altlığı.
+    for (int row = 0; row < footer; ++row) {
+        CHECK_EQ(RowDifference(out, content + row, frames.back(),
+                               height - footer + row),
+                 static_cast<uint64_t>(0));
+    }
+
+    // AYIKLAMA KAPALIYKEN eski davranış: aynı toplam boy, ama altlık ikinci
+    // karenin şeridiyle birlikte ortaya kopyalanmış.
+    StitchOptions keep;
+    keep.trimStickyFooter = false;
+    Image old;
+    CHECK(StitchVertical(frames, 40, keep, old, nullptr));
+    CHECK_EQ(old.Height(), content + footer);
+    CHECK_EQ(RowDifference(old, height + shift - 1, frames[1], height - 1),
+             static_cast<uint64_t>(0));
+    CHECK(RowDifference(out, height + shift - 1, frames[1], height - 1) > 0);
+}
+
+CRISP_TEST(Stitch, Yapisik_baslik_bir_kez_kopyalanir) {
+    const int width = 48;
+    const int height = 300;
+    const int header = 90;
+    const int shift = 40;
+    const int count = 5;
+
+    std::vector<Image> frames;
+    CHECK(MakeScrolledFrames(width, height, shift, count, frames));
+    PaintStickyRows(frames, 0, header);
+    CHECK_EQ(DetectStickyHeader(frames), header);
+
+    Image out;
+    size_t used = 0;
+    CHECK(StitchVertical(frames, 40, out, &used));
+    CHECK_EQ(used, static_cast<size_t>(count));
+    CHECK_EQ(out.Height(), height + shift * (count - 1));
+
+    // Başlık yalnızca en üstte; altındaki her satır kesintisiz sayfa.
+    Image whole;
+    CHECK(MakeFrame(width, out.Height(), 0, whole));
+    for (int y = 0; y < header; ++y) {
+        CHECK_EQ(RowDifference(out, y, frames[0], y), static_cast<uint64_t>(0));
+    }
+    for (int y = header; y < out.Height(); ++y) {
+        CHECK_EQ(RowDifference(out, y, whole, y), static_cast<uint64_t>(0));
+    }
+}

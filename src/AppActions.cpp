@@ -325,17 +325,39 @@ void App::CaptureScrolling() {
     }
 
     std::vector<Image> frames;
-    const ScrollCaptureOptions options;
+    ScrollCaptureOptions options;
+    // YÖN KESİNLEŞİNCE BİLDİRİM DEĞİŞİR. Yatay kaydırma nadir ve kullanıcı
+    // "kaydırılıyor" yazan bir bildirimin altında sayfanın yana kaydığını
+    // görünce bunun bilinçli olduğunu bilmeli. Bağlam olarak `this`
+    // veriliyor; toplama bu çağrının içinde bitiyor, gösterici sağ kalır.
+    options.onDirectionContext = this;
+    options.onDirection = [](ScrollDirection direction, void* context) {
+        auto* self = static_cast<App*>(context);
+        if (direction == ScrollDirection::Horizontal &&
+            self->m_settings.showNotification) {
+            Image none;
+            ShowProgressToast(self->m_instance, none,
+                              Loc::Str(IDS_SCROLL_HORIZONTAL),
+                              Loc::Str(IDS_MENU_SCROLL));
+        }
+    };
     LogV(L"Kaydırmalı yakalama başlıyor: %ldx%ld",
          geom::Width(chosen.selection), geom::Height(chosen.selection));
     // Toplama sırasında mesaj kuyruğu boşaltılıyor (bildirim görünsün diye);
     // meşgul bayrağı yukarıdaki kapsam sayesinde kurulu.
-    const bool collected = CollectScrollFrames(chosen.selection, options, frames);
+    ScrollDirection direction = ScrollDirection::Vertical;
+    const bool collected =
+        CollectScrollFrames(chosen.selection, options, frames, &direction);
 
+    // Kareler hangi yönde toplandıysa o yönde birleştirilir; dikeyde yapışık
+    // başlık/altlık ayıklaması varsayılan seçeneklerle açık.
     Image stitched;
     size_t used = 0;
     const bool joined =
-        collected && StitchVertical(frames, kScrollOverlapRows, stitched, &used);
+        collected &&
+        (direction == ScrollDirection::Horizontal
+             ? StitchHorizontal(frames, kScrollOverlapRows, stitched, &used)
+             : StitchVertical(frames, kScrollOverlapRows, stitched, &used));
 
     // TEK KARE, KAYDIRILAMAMIŞ DEMEKTİR. Kullanıcı kaydırmalı yakalama istedi
     // ve eline sıradan bir ekran görüntüsü geçti; bunu söylemeden vermek,

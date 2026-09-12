@@ -48,6 +48,8 @@ set(CRISP_CORE_SOURCES
     src/Geometry.cpp
     src/ActionBar.cpp
     src/Stitch.cpp
+    src/StitchVertical.cpp
+    src/StitchHorizontal.cpp
     src/ScrollCapture.cpp
     src/GeometryGrab.cpp
     src/Capture.cpp

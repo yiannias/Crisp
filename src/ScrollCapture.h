@@ -22,15 +22,24 @@
 
 namespace crisp {
 
-// Kareler arasında aranacak en az örtüşme, satır. Bir tekerlek çentiği genelde
-// ~50 piksel; üç çentik ~150. Yüz satırlık bir şerit o hızda bile paylaşılıyor
-// ve iki kareyi ayırt etmeye fazlasıyla yetiyor.
+// Kareler arasında aranacak en az örtüşme, satır (yatayda sütun). Bir
+// tekerlek çentiği genelde ~50 piksel; üç çentik ~150. Yüz satırlık bir şerit
+// o hızda bile paylaşılıyor ve iki kareyi ayırt etmeye fazlasıyla yetiyor.
 //
 // BAŞLIKTA, ÇÜNKÜ İKİ TARAF DA OKUYOR: kareleri toplayan taraf "yeni içerik
 // var mı" diye sorarken, birleştiren taraf da aynı sayıyı kullanmalı. İkisi
 // ayrı olsaydı, toplama sırasında kabul edilen bir kare birleştirmede
 // reddedilebilirdi.
 inline constexpr int kScrollOverlapRows = 100;
+
+// Kaydırmanın yönü.
+//
+// AUTO ÖNCE DİKEY DENER: kaydırarak yakalanan şey neredeyse her zaman uzun
+// bir sayfa. Sayfa dikeyde kıpırdamazsa bir de yatay tekerlek denenir —
+// geniş tablolar, zaman çizelgeleri, yatay galeriler. İkisi de kıpırdatmazsa
+// tek kare teslim edilir. İki ekseni aynı anda aramak yanlış eşleşme
+// ihtimalini artırırdı; sırayla denemek bir adımlık bir gecikmeye mal oluyor.
+enum class ScrollDirection { Auto, Vertical, Horizontal };
 
 // Kaydırmalı yakalamanın ayarları.
 struct ScrollCaptureOptions {
@@ -46,6 +55,17 @@ struct ScrollCaptureOptions {
     // sayfayı yakalamak için; kısa tutulursa hareket hâlindeki bir kare
     // yakalanır ve o kare hiçbir şeyle eşleşmez.
     unsigned settleMs = 260;
+
+    // Hangi yönde kaydırılacağı; Auto yukarıda anlatıldığı gibi karar verir.
+    ScrollDirection direction = ScrollDirection::Auto;
+
+    // Yön KESİNLEŞTİĞİNDE bir kez çağrılır (Auto'da ilk hareket eden adımdan
+    // sonra, belirli bir yönde hemen). Toplama saniyeler sürüyor ve bu
+    // süreyi çağıran göremiyor; "yana kaydırılıyor" bildirimini toplama
+    // bittikten sonra göstermek anlamsız olurdu. Ham işlev göstericisi +
+    // bağlam: std::function'ın bu tek çağrı için getireceği bir şey yok.
+    void (*onDirection)(ScrollDirection direction, void* context) = nullptr;
+    void* onDirectionContext = nullptr;
 };
 
 // Kareleri toplar. `region` ekran koordinatında ve kaydırılacak pencerenin
@@ -58,8 +78,13 @@ struct ScrollCaptureOptions {
 //
 // Kareler arasında yeni içerik kalmadığında ERKEN DURUR: aynı görüntüyü
 // otuz kez yakalamanın kimseye faydası yok.
+//
+// `used` doluysa, karelerin hangi yönde toplandığı yazılır; çağıran buna göre
+// StitchVertical ya da StitchHorizontal seçer. Hiç kaydırılamayan (tek kare)
+// bir toplama Vertical der: birleştirme tek kareyi olduğu gibi verir.
 [[nodiscard]] bool CollectScrollFrames(const RECT& region,
                                        const ScrollCaptureOptions& options,
-                                       std::vector<Image>& frames);
+                                       std::vector<Image>& frames,
+                                       ScrollDirection* used = nullptr);
 
 }  // namespace crisp
