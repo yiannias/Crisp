@@ -139,7 +139,13 @@ bool PinQrForLink(HINSTANCE instance, HWND reference, const std::wstring& link) 
     if (topLeft.y < work.top) {
         topLeft.y = work.top;
     }
-    return PinImageToScreen(instance, card, topLeft);
+    // KART BİR BİLDİRİMDİR, KALICI BİR İĞNE DEĞİL: tıklayınca kapanır, bir
+    // dakika sonra kendi kapanır, çıkışta kaydedilmez. Sağ tık menüsü yine
+    // çalışır (kopyala, farklı kaydet).
+    PinView view;
+    view.transient = true;
+    view.autoCloseMs = 60000;
+    return PinImageWithView(instance, card, topLeft, view);
 }
 
 }  // namespace crisp

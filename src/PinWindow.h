@@ -38,6 +38,14 @@ struct PinView {
     bool frame = false;
     bool clickThrough = false;
     bool hidden = false;   // pencere oluşturulur ama gösterilmez
+
+    // GEÇİCİ İĞNE: bir bildirim kartı gibi davranır. Sol tık kapatır,
+    // `autoCloseMs` dolunca kendi kapanır, sürüklenemez ve diske YAZILMAZ —
+    // QR kartı bunun için var. Eskiden kart sıradan bir iğneydi: kapatmanın
+    // tek yolu sağ tık menüsüydü ve çıkışta kaydedilip bir sonraki açılışta
+    // geri geliyordu.
+    bool transient = false;
+    unsigned autoCloseMs = 0;   // 0 = süresiz
 };
 
 [[nodiscard]] bool PinImageWithView(HINSTANCE instance, const Image& image,

@@ -38,6 +38,11 @@ namespace {
         if (entry == nullptr || entry->window == nullptr || !entry->image.Valid()) {
             continue;
         }
+        // Geçici iğne (QR kartı) diske yazılmaz: bir sonraki açılışta bayat
+        // bir bağlantının kartı geri gelmemeli.
+        if (entry->transient) {
+            continue;
+        }
 
         // KONUM PENCEREDEN OKUNUR, saklanan bir alandan değil: kullanıcı iğneyi
         // sürükleyerek taşıyor ve o hareket hiçbir yere yazılmıyor. Görünürlük

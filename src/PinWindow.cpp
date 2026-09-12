@@ -140,9 +140,25 @@ LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             return 1;
 
         // Pencerenin her yeri başlık çubuğu gibi davranır: kullanıcı görüntünün
-        // herhangi bir yerinden tutup sürükleyebilir.
+        // herhangi bir yerinden tutup sürükleyebilir. GEÇİCİ iğne sürüklenmez;
+        // orada tık istemciye düşer ve kartı kapatır.
         case WM_NCHITTEST:
-            return HTCAPTION;
+            return (state != nullptr && state->transient) ? HTCLIENT : HTCAPTION;
+
+        case WM_LBUTTONUP:
+            if (state != nullptr && state->transient) {
+                ::DestroyWindow(window);
+                return 0;
+            }
+            break;
+
+        case WM_TIMER:
+            if (wParam == pin::kAutoCloseTimer) {
+                ::KillTimer(window, pin::kAutoCloseTimer);
+                ::DestroyWindow(window);
+                return 0;
+            }
+            break;
 
         case WM_MOUSEWHEEL: {
             if (state == nullptr) {
@@ -270,6 +286,7 @@ bool PinImageWithView(HINSTANCE instance, const Image& image, POINT topLeft,
     state->topMost = view.topMost;
     state->frame = view.frame;
     state->clickThrough = view.clickThrough;
+    state->transient = view.transient;
 
     // Görüntü kopyalanır: çağıranın Image'ı bu çağrıdan sonra yok olabilir.
     if (!CropImage(image, 0, 0, image.Width(), image.Height(), state->image)) {
@@ -327,6 +344,9 @@ bool PinImageWithView(HINSTANCE instance, const Image& image, POINT topLeft,
     if (!view.hidden) {
         ::ShowWindow(window, SW_SHOWNOACTIVATE);
         ::UpdateWindow(window);
+    }
+    if (view.autoCloseMs > 0) {
+        (void)::SetTimer(window, pin::kAutoCloseTimer, view.autoCloseMs, nullptr);
     }
     return true;
 }

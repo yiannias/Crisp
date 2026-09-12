@@ -32,7 +32,13 @@ struct PinState {
     bool topMost = true;
     bool frame = false;
     bool clickThrough = false;
+
+    // Bkz. PinView::transient. Kalıcı listeye girmez, tıkla kapanır.
+    bool transient = false;
 };
+
+// Geçici iğnenin kendi kendine kapanma zamanlayıcısı.
+inline constexpr UINT_PTR kAutoCloseTimer = 1;
 
 // --- PinWindow.cpp ----------------------------------------------------------
 
