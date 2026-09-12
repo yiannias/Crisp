@@ -337,6 +337,19 @@ void LoadIntoControls(HWND window, const State& state) {
     SetCheck(window, kIdAfterOcr, s.after.copyTextViaOcr);
     SetCheck(window, kIdAfterUpload, s.after.uploadImage);
     SetCheck(window, kIdNotify, s.showNotification);
+    SetCheck(window, kIdCheckUpdates, s.checkForUpdates);
+    SetCheck(window, kIdShortenLinks, s.shortenLinks);
+    SetCheck(window, kIdShowQr, s.showQrAfterUpload);
+
+    int colorIndex = 0;
+    for (size_t i = 0; i < state.colorFormatIds.size(); ++i) {
+        if (state.colorFormatIds[i] == s.colorFormat) {
+            colorIndex = static_cast<int>(i);
+            break;
+        }
+    }
+    ::SendDlgItemMessageW(window, kIdColorFormat, CB_SETCURSEL,
+                          static_cast<WPARAM>(colorIndex), 0);
     int escapeAction = 0;
     switch (s.editorEscapeAction) {
         case EditorEscapeAction::CloseEditor:
@@ -417,6 +430,15 @@ void ReadFromControls(HWND window, State& state) {
     s.after.copyTextViaOcr = GetCheck(window, kIdAfterOcr);
     s.after.uploadImage = GetCheck(window, kIdAfterUpload);
     s.showNotification = GetCheck(window, kIdNotify);
+    s.checkForUpdates = GetCheck(window, kIdCheckUpdates);
+    s.shortenLinks = GetCheck(window, kIdShortenLinks);
+    s.showQrAfterUpload = GetCheck(window, kIdShowQr);
+    const LRESULT colorIndex =
+        ::SendDlgItemMessageW(window, kIdColorFormat, CB_GETCURSEL, 0, 0);
+    if (colorIndex >= 0 &&
+        static_cast<size_t>(colorIndex) < state.colorFormatIds.size()) {
+        s.colorFormat = state.colorFormatIds[static_cast<size_t>(colorIndex)];
+    }
     switch (::SendDlgItemMessageW(window, kIdEditorEscapeAction, CB_GETCURSEL, 0, 0)) {
         case 1:
             s.editorEscapeAction = EditorEscapeAction::CancelCommand;

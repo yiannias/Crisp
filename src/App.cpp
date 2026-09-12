@@ -105,6 +105,11 @@ bool App::Initialize(HINSTANCE instance) {
     }
 
     ::SetTimer(m_window, TIMER_THEME, kThemePollMs, nullptr);
+    // Sessiz güncelleme denetimi açılıştan on beş saniye sonra; ayar kapalıysa
+    // zamanlayıcı düştüğünde hiçbir şey yapılmaz.
+    if (m_settings.checkForUpdates) {
+        ::SetTimer(m_window, TIMER_UPDATE_CHECK, 15000, nullptr);
+    }
     return true;
 }
 
@@ -149,6 +154,7 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
             if (event == WM_RBUTTONUP || event == WM_CONTEXTMENU) {
                 m_tray.SetMenuState(m_settings, m_settings.HasLastRegion(),
                                     ClipboardHasImage());
+                m_tray.SetExtraState(m_guideSteps.size(), m_updateVersion);
                 const int command = m_tray.ShowMenu(window);
                 if (command != 0) {
                     // Explorer, TrackPopupMenuEx döndükten sonra da kapanış
@@ -175,6 +181,10 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
         // açmak buraya ait; iş parçacığı yalnızca ağı bekliyor.
         case WM_CRISP_UPLOAD_TOAST:
             FinishBackgroundUpload(lParam);
+            return 0;
+
+        case WM_CRISP_UPDATE_RESULT:
+            FinishUpdateCheck(lParam);
             return 0;
 
         case WM_COMMAND:
@@ -215,6 +225,13 @@ LRESULT App::HandleMessage(HWND window, UINT message, WPARAM wParam,
                 ::Sleep(120);
                 PerformCapture(action);
                 m_busy = false;
+                return 0;
+            }
+            if (wParam == TIMER_UPDATE_CHECK) {
+                ::KillTimer(window, TIMER_UPDATE_CHECK);
+                if (m_settings.checkForUpdates) {
+                    CheckForUpdates(false);
+                }
                 return 0;
             }
             if (wParam == TIMER_TRAY_SETTLE) {
@@ -330,6 +347,27 @@ void App::OnCommand(int command) {
             break;
         case IDM_HISTORY:
             ShowHistory();
+            break;
+        case IDM_GUIDE_ADD_REGION:
+            GuideAddStep(false);
+            break;
+        case IDM_GUIDE_ADD_WINDOW:
+            GuideAddStep(true);
+            break;
+        case IDM_GUIDE_FINISH:
+            GuideFinish();
+            break;
+        case IDM_GUIDE_DISCARD:
+            GuideDiscard();
+            break;
+        case IDM_TOGGLE_PINS:
+            TogglePins();
+            break;
+        case IDM_CHECK_UPDATE:
+            CheckForUpdates(true);
+            break;
+        case IDM_UPDATE_AVAILABLE:
+            OpenUpdatePage();
             break;
         case IDM_SETTINGS:
             ShowSettings();

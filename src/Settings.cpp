@@ -88,6 +88,12 @@ void Settings::Clamp() {
     }
     saveQuality = ClampUnsigned(saveQuality, 1u, 100u);
 
+    // Bilinmeyen renk biçimi hex'e döner; liste ColorSpace.h'dekiyle aynı.
+    if (colorFormat != L"rgb" && colorFormat != L"hsl" && colorFormat != L"cssvar" &&
+        colorFormat != L"tailwind") {
+        colorFormat = L"hex";
+    }
+
     // Üst sınır keyfi değil: geçmiş penceresi açılırken her kaydı çözdüğü
     // için yüzlerce kayıt açılışı fark edilir biçimde yavaşlatırdı. 0 ise
     // geçmiş kapalıdır ve bu geçerli bir seçimdir.
@@ -191,6 +197,10 @@ void Settings::Load(const SettingsStore& store) {
     store.ReadBool(L"PlayShutterSound", playShutterSound);
     store.ReadBool(L"PrintScreenCapture", printScreenCapture);
     store.ReadBool(L"ShowNotification", showNotification);
+    store.ReadBool(L"CheckForUpdates", checkForUpdates);
+    store.ReadString(L"ColorFormat", colorFormat);
+    store.ReadBool(L"ShortenLinks", shortenLinks);
+    store.ReadBool(L"ShowQrAfterUpload", showQrAfterUpload);
     unsigned escapeAction = static_cast<unsigned>(editorEscapeAction);
     if (store.ReadUnsigned(L"EditorEscapeAction", escapeAction) &&
         escapeAction <= static_cast<unsigned>(EditorEscapeAction::CancelCommand)) {
@@ -292,6 +302,10 @@ bool Settings::Save(const SettingsStore& store) const {
     ok = store.WriteBool(L"PlayShutterSound", playShutterSound) && ok;
     ok = store.WriteBool(L"PrintScreenCapture", printScreenCapture) && ok;
     ok = store.WriteBool(L"ShowNotification", showNotification) && ok;
+    ok = store.WriteBool(L"CheckForUpdates", checkForUpdates) && ok;
+    ok = store.WriteString(L"ColorFormat", colorFormat) && ok;
+    ok = store.WriteBool(L"ShortenLinks", shortenLinks) && ok;
+    ok = store.WriteBool(L"ShowQrAfterUpload", showQrAfterUpload) && ok;
     ok = store.WriteUnsigned(L"EditorEscapeAction",
                              static_cast<unsigned>(editorEscapeAction)) && ok;
     ok = store.WriteUnsigned(L"HistoryLimit", historyLimit) && ok;

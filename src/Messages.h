@@ -23,6 +23,10 @@ inline constexpr UINT WM_CRISP_UPLOAD_DONE = WM_APP + 2;
 // düşen bir mesaj yanlış türe dönüştürülürdü.
 inline constexpr UINT WM_CRISP_UPLOAD_TOAST = WM_APP + 3;
 
+// Güncelleme denetimi bitti; lParam sonucu taşıyan bir yükün adresi (bkz.
+// AppUpdate.cpp). Ağ arka planda, arayüz pencere iş parçacığında.
+inline constexpr UINT WM_CRISP_UPDATE_RESULT = WM_APP + 4;
+
 // Gecikmeli yakalama sayacı.
 inline constexpr UINT_PTR TIMER_DELAY = 1;
 
@@ -34,6 +38,10 @@ inline constexpr UINT_PTR TIMER_COUNTDOWN = 3;
 
 // Tepsi menüsü kapandıktan sonra yakalamayı başlatan kısa, tek atımlı bekleme.
 inline constexpr UINT_PTR TIMER_TRAY_SETTLE = 4;
+
+// Açılıştan birkaç saniye sonra tek atımlık güncelleme denetimi. Hemen değil:
+// oturum açılışında ağ ve kabuk zaten meşgul.
+inline constexpr UINT_PTR TIMER_UPDATE_CHECK = 5;
 
 // Global kısayol kimlikleri. RegisterHotKey aynı iş parçacığında benzersiz
 // olmalarını şart koşar.

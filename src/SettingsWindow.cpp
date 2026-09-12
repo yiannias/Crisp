@@ -204,6 +204,9 @@ UINT HotkeyActionLabel(HotkeyAction action) noexcept {
         case HotkeyAction::Scrolling:    return IDS_ACT_SCROLL;
         case HotkeyAction::DelayedWindow:  return IDS_ACT_DELAYED_WINDOW;
         case HotkeyAction::DelayedMonitor: return IDS_ACT_DELAYED_MONITOR;
+        case HotkeyAction::GuideStep:    return IDS_ACT_GUIDE_STEP;
+        case HotkeyAction::GuideFinish:  return IDS_ACT_GUIDE_FINISH;
+        case HotkeyAction::TogglePins:   return IDS_ACT_TOGGLE_PINS;
         default:                         return IDS_ACT_NONE;
     }
 }
@@ -212,9 +215,10 @@ void BuildControls(HWND window, State& state) {
     const unsigned dpi = state.dpi;
     const int pad = Scale(kPad, dpi);
     const int columnWidth =
-        (Scale(kWidth, dpi) - pad * 2 - Scale(kColumnGap, dpi) * 2) / 3;
+        (Scale(kWidth, dpi) - pad * 2 - Scale(kColumnGap, dpi) * 3) / 4;
     const int middleLeft = pad + columnWidth + Scale(kColumnGap, dpi);
-    const int rightLeft = middleLeft + columnWidth + Scale(kColumnGap, dpi);
+    const int thirdLeft = middleLeft + columnWidth + Scale(kColumnGap, dpi);
+    const int rightLeft = thirdLeft + columnWidth + Scale(kColumnGap, dpi);
 
     // --- Sol sütun ----------------------------------------------------------
     Cursor left(window, state, pad, pad, columnWidth);
@@ -244,6 +248,8 @@ void BuildControls(HWND window, State& state) {
     // KABUK MENÜSÜ "Genel"DE: bir yakalama ayarı değil, Windows'la kurulan bir
     // bağ — kaydetme ya da yakalama gruplarının hiçbirine ait değil.
     (void)left.Check(kIdShellMenu, Loc::Str(IDS_SET_SHELL_MENU).c_str());
+    // GÜNCELLEME DENETİMİ DE "GENEL"DE ve kapalı gelir; gerekçesi Settings.h'de.
+    (void)left.Check(kIdCheckUpdates, Loc::Str(IDS_SET_CHECK_UPDATES).c_str());
 
     left.Group(Loc::Str(IDS_SET_GROUP_SAVE).c_str());
     (void)left.Labelled(kIdFolder, Loc::Str(IDS_SET_FOLDER).c_str(), L"EDIT",
@@ -314,6 +320,26 @@ void BuildControls(HWND window, State& state) {
     (void)middle.Check(kIdPrintScreen, Loc::Str(IDS_SET_PRINTSCREEN).c_str());
     (void)middle.Check(kIdShutter, Loc::Str(IDS_SET_SHUTTER).c_str());
 
+    // Renk seçicinin panoya yazdığı biçim. Sıra `state.colorFormatIds`e
+    // yazılır; kimlikler ColorSpace.h'deki ColorFormatId ile aynı.
+    const HWND colorBox = middle.Labelled(
+        kIdColorFormat, Loc::Str(IDS_SET_COLOR_FORMAT).c_str(), L"COMBOBOX",
+        CBS_DROPDOWNLIST | WS_VSCROLL);
+    struct ColorEntry {
+        UINT label;
+        const wchar_t* id;
+    };
+    for (const ColorEntry& entry :
+         {ColorEntry{IDS_COLOR_FMT_HEX, L"hex"}, ColorEntry{IDS_COLOR_FMT_RGB, L"rgb"},
+          ColorEntry{IDS_COLOR_FMT_HSL, L"hsl"},
+          ColorEntry{IDS_COLOR_FMT_CSSVAR, L"cssvar"},
+          ColorEntry{IDS_COLOR_FMT_TAILWIND, L"tailwind"}}) {
+        const std::wstring text = Loc::Str(entry.label);
+        ::SendMessageW(colorBox, CB_ADDSTRING, 0,
+                       reinterpret_cast<LPARAM>(text.c_str()));
+        state.colorFormatIds.emplace_back(entry.id);
+    }
+
     middle.Group(Loc::Str(IDS_SET_GROUP_EDITOR).c_str());
     const HWND editorEscape = middle.Labelled(
         kIdEditorEscapeAction, Loc::Str(IDS_SET_EDITOR_ESCAPE).c_str(), L"COMBOBOX",
@@ -333,28 +359,29 @@ void BuildControls(HWND window, State& state) {
                           Loc::Str(IDS_SET_MOSAIC_STRENGTH).c_str(), L"EDIT",
                           ES_NUMBER | WS_BORDER, Scale(70, dpi));
 
-    // YÜKLEME KENDİ GRUBUNDA VE ORTA SÜTUNDA.
+    // --- Üçüncü sütun: yükleme ---------------------------------------------
     //
-    // Kendi grubunda: "Kaydetme"nin içine konsaydı, diske yazmakla internete
-    // göndermek aynı başlığın altında görünürdü ve bu ayrımı bir grup
-    // başlığından daha azıyla anlatmak doğru olmaz.
-    //
-    // Orta sütunda, çünkü sol sütun doluydu: dördüncü grup, alt şeritteki
-    // düğmelerle arasında sekiz piksel bırakıyordu. Orta sütunda iki yüz
-    // altmış piksel boşluk duruyordu. Pencere sabit ölçülü ve uzatılamıyor;
-    // gerekçesi kWidth/kHeight'ın yanında yazılı.
-    middle.Group(Loc::Str(IDS_SET_GROUP_UPLOAD).c_str());
-    const HWND uploadBox = middle.Labelled(kIdUploadService,
-                                         Loc::Str(IDS_SET_UPLOAD_SERVICE).c_str(),
-                                         L"COMBOBOX", CBS_DROPDOWNLIST | WS_VSCROLL);
+    // YÜKLEME KENDİ GRUBUNDA: "Kaydetme"nin içine konsaydı, diske yazmakla
+    // internete göndermek aynı başlığın altında görünürdü ve bu ayrımı bir
+    // grup başlığından daha azıyla anlatmak doğru olmaz. Kendi sütununda,
+    // çünkü kısa bağlantı ve QR seçenekleriyle birlikte orta sütuna sığmıyor.
+    Cursor third(window, state, thirdLeft, pad, columnWidth);
+    third.Group(Loc::Str(IDS_SET_GROUP_UPLOAD).c_str());
+    const HWND uploadBox = third.Labelled(kIdUploadService,
+                                        Loc::Str(IDS_SET_UPLOAD_SERVICE).c_str(),
+                                        L"COMBOBOX", CBS_DROPDOWNLIST | WS_VSCROLL);
 
     FillUploadServices(uploadBox, state);
 
     // ES_PASSWORD: anahtar omuz üstünden okunacak bir şey değil. Kullanıcı onu
     // bir kez yapıştırıp bir daha bakmıyor; açıkta durmasının bir faydası yok.
-    (void)middle.Labelled(kIdUploadKey, Loc::Str(IDS_SET_UPLOAD_KEY).c_str(),
-                        L"EDIT", ES_AUTOHSCROLL | ES_PASSWORD | WS_BORDER);
-    middle.Note(Loc::Str(IDS_SET_UPLOAD_HINT).c_str());
+    (void)third.Labelled(kIdUploadKey, Loc::Str(IDS_SET_UPLOAD_KEY).c_str(),
+                         L"EDIT", ES_AUTOHSCROLL | ES_PASSWORD | WS_BORDER);
+    // İKİSİ DE KAPALI GELİR: kısaltma ikinci bir ağ isteği, QR ekrana bir
+    // pencere daha demek. Yükleme açık olsa bile kullanıcı ayrıca ister.
+    (void)third.Check(kIdShortenLinks, Loc::Str(IDS_SET_SHORTEN_LINKS).c_str());
+    (void)third.Check(kIdShowQr, Loc::Str(IDS_SET_SHOW_QR).c_str());
+    third.Note(Loc::Str(IDS_SET_UPLOAD_HINT).c_str());
 
     // --- Sağ sütun ----------------------------------------------------------
     Cursor right(window, state, rightLeft, pad, columnWidth);

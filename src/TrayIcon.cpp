@@ -221,6 +221,9 @@ int TrayIcon::ShowMenu(HWND owner) {
             case IDM_CAPTURE_OCR:        return HotkeyAction::RegionText;
             case IDM_PICK_COLOR:         return HotkeyAction::PickColor;
             case IDM_HISTORY:            return HotkeyAction::History;
+            case IDM_GUIDE_ADD_REGION:   return HotkeyAction::GuideStep;
+            case IDM_GUIDE_FINISH:       return HotkeyAction::GuideFinish;
+            case IDM_TOGGLE_PINS:        return HotkeyAction::TogglePins;
             default:                     return HotkeyAction::None;
         }
     };
@@ -273,6 +276,25 @@ int TrayIcon::ShowMenu(HWND owner) {
     // Kaydırmalı yakalama yakalama grubunun SONUNDA: diğer altısı bir karede
     // biterken bu saniyeler sürüyor ve pencereyi kendisi kaydırıyor.
     add(menu, IDM_CAPTURE_SCROLL, IDS_MENU_SCROLL, 0);
+    // ADIM KILAVUZU ALT MENÜDE: dört komut ve yalnızca bir iş akışı sürerken
+    // anlamlı olan ikisi (bitir, at) adım yokken soluk.
+    {
+        const HMENU guide = ::CreatePopupMenu();
+        if (guide != nullptr) {
+            add(guide, IDM_GUIDE_ADD_REGION, IDS_GUIDE_ADD_REGION, 0);
+            add(guide, IDM_GUIDE_ADD_WINDOW, IDS_GUIDE_ADD_WINDOW, 0);
+            ::AppendMenuW(guide, MF_SEPARATOR, 0, nullptr);
+            const UINT active = m_guideSteps > 0 ? MF_STRING : (MF_STRING | MF_GRAYED);
+            add(guide, IDM_GUIDE_FINISH, IDS_GUIDE_FINISH, 0, active);
+            add(guide, IDM_GUIDE_DISCARD, IDS_GUIDE_DISCARD, 0, active);
+            std::wstring title = Loc::Str(IDS_MENU_GUIDE);
+            if (m_guideSteps > 0) {
+                title += L" (" + std::to_wstring(m_guideSteps) + L")";
+            }
+            ::AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(guide),
+                          title.c_str());
+        }
+    }
     separator();
     add(menu, IDM_SELECT_TEXT, IDS_MENU_SELECT_TEXT, 0);
     add(menu, IDM_CAPTURE_OCR, IDS_MENU_REGION_TEXT, 0);
@@ -281,6 +303,7 @@ int TrayIcon::ShowMenu(HWND owner) {
     ::AppendMenuW(menu, m_hasClipboardImage ? MF_STRING : (MF_STRING | MF_GRAYED),
                   IDM_OPEN_CLIPBOARD, Loc::Str(IDS_MENU_CLIPBOARD).c_str());
     add(menu, IDM_HISTORY, IDS_MENU_HISTORY, 0);
+    add(menu, IDM_TOGGLE_PINS, IDS_MENU_TOGGLE_PINS, 0);
     add(menu, IDM_OPEN_FOLDER, IDS_MENU_OPEN_FOLDER, 0);
 
     // SON BAĞLANTILAR. Yükleme bağlantıyı panoya koyup orada bırakıyordu; bir
@@ -308,6 +331,17 @@ int TrayIcon::ShowMenu(HWND owner) {
     }
 
     separator();
+    // YENİ SÜRÜM SATIRI YALNIZCA VARSA: "güncel" diyen kalıcı bir satır, her
+    // menü açılışında okunan ama hiçbir şey söylemeyen bir satır olurdu.
+    if (!m_updateVersion.empty()) {
+        std::wstring text = Loc::Str(IDS_MENU_UPDATE_AVAILABLE);
+        const size_t at = text.find(L"%s");
+        if (at != std::wstring::npos) {
+            text.replace(at, 2, m_updateVersion);
+        }
+        ::AppendMenuW(menu, MF_STRING, IDM_UPDATE_AVAILABLE, text.c_str());
+    }
+    add(menu, IDM_CHECK_UPDATE, IDS_MENU_CHECK_UPDATE, 0);
     add(menu, IDM_SETTINGS, IDS_MENU_SETTINGS, 0);
     add(menu, IDM_ABOUT, IDS_MENU_ABOUT, 0);
     add(menu, IDM_EXIT, IDS_MENU_EXIT, 0);

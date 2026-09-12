@@ -139,6 +139,9 @@ enum class HotkeyAction : unsigned {
     Scrolling,       // kaydıra kaydıra uzun bir sayfa
     DelayedWindow,   // gecikmeli, imlecin altındaki pencere
     DelayedMonitor,  // gecikmeli, imlecin bulunduğu monitör
+    GuideStep,       // bölge seç ve adım kılavuzuna ekle
+    GuideFinish,     // kılavuzu tek görüntüde birleştir ve teslim et
+    TogglePins,      // açık iğnelerin hepsini gizle / göster
     Count,
 };
 
@@ -193,6 +196,21 @@ struct Settings {
     bool printScreenCapture = true;
     // Yakalamadan sonra köşede kısa bir bildirim gösterilsin mi?
     bool showNotification = true;
+
+    // AÇILIŞTA GÜNCELLEME DENETİMİ. KAPALI GELİR: uygulama, kullanıcı bir
+    // servis seçene kadar ağa çıkmaz (bkz. Upload.h) ve bir sürüm denetimi de
+    // bu sözün istisnası değil. Açan kullanıcı ne açtığını bilir.
+    bool checkForUpdates = false;
+
+    // Renk seçicinin panoya yazdığı biçim: hex, rgb, hsl, cssvar, tailwind.
+    // Metin kimlik, sayı değil — ayar dosyasında okunabilir ve sıra
+    // değişikliğinden etkilenmez (bkz. ColorSpace.h ColorFormatFromId).
+    std::wstring colorFormat = L"hex";
+
+    // Yükleme bittiğinde bağlantıyı is.gd ile kısalt (ikinci bir ağ isteği);
+    // ve bağlantının QR kodunu ekrana iğnele. İkisi de kapalı gelir.
+    bool shortenLinks = false;
+    bool showQrAfterUpload = false;
     EditorEscapeAction editorEscapeAction = EditorEscapeAction::CloseEditor;
     // Geçmişte saklanacak yakalama sayısı; 0 = geçmiş kapalı.
     unsigned historyLimit = 24;

@@ -29,6 +29,14 @@
 #define IDM_CAPTURE_SCROLL      218
 #define IDM_DELAYED_WINDOW      219
 #define IDM_DELAYED_MONITOR     220
+// Güncelleme denetimi, adım kılavuzu ve iğne grubu.
+#define IDM_CHECK_UPDATE        221
+#define IDM_UPDATE_AVAILABLE    222
+#define IDM_GUIDE_ADD_REGION    223
+#define IDM_GUIDE_ADD_WINDOW    224
+#define IDM_GUIDE_FINISH        225
+#define IDM_GUIDE_DISCARD       226
+#define IDM_TOGGLE_PINS         227
 
 // Son yüklenen bağlantılar. Alt menüdeki her satır bir komut kimliği alır ve
 // tıklandığında o bağlantıyı panoya kopyalar; blok hâlinde ayrılmalarının
@@ -332,3 +340,56 @@
 #define IDS_ACT_DELAYED_WINDOW  1243
 #define IDS_ACT_DELAYED_MONITOR 1244
 #define IDS_MENU_DELAYED_REGION 1245
+
+// --- 0.9 özellikleri (1251+) -------------------------------------------------
+// YALNIZCA İNGİLİZCE TABLODA TANIMLI: Loc::Str İngilizceye düşer (bkz.
+// Localization.cpp). Çeviriler geldikçe diğer tablolara eklenir.
+
+// Güncelleme denetimi
+#define IDS_MENU_CHECK_UPDATE   1251
+#define IDS_UPDATE_AVAILABLE    1252
+#define IDS_UPDATE_NONE         1253
+#define IDS_UPDATE_FAILED       1254
+#define IDS_SET_CHECK_UPDATES   1255
+#define IDS_MENU_UPDATE_AVAILABLE 1256
+#define IDS_UPDATE_OPEN         1257
+
+// Adım adım kılavuz
+#define IDS_MENU_GUIDE          1258
+#define IDS_GUIDE_ADD_REGION    1259
+#define IDS_GUIDE_ADD_WINDOW    1260
+#define IDS_GUIDE_FINISH        1261
+#define IDS_GUIDE_DISCARD       1262
+#define IDS_GUIDE_STEP_ADDED    1263
+#define IDS_ACT_GUIDE_STEP      1264
+#define IDS_ACT_GUIDE_FINISH    1265
+#define IDS_GUIDE_EMPTY         1266
+#define IDS_GUIDE_TITLE         1267
+
+// Renk biçimleri
+#define IDS_SET_COLOR_FORMAT    1268
+#define IDS_COLOR_FMT_HEX       1269
+#define IDS_COLOR_FMT_RGB       1270
+#define IDS_COLOR_FMT_HSL       1271
+#define IDS_COLOR_FMT_CSSVAR    1272
+#define IDS_COLOR_FMT_TAILWIND  1273
+#define IDS_TOAST_COLOR_COPIED  1274
+
+// Kısa bağlantı ve QR
+#define IDS_SET_SHORTEN_LINKS   1275
+#define IDS_SET_SHOW_QR         1276
+#define IDS_QR_SCAN_HINT        1277
+
+// İğne penceresi ek özellikleri
+#define IDS_PIN_TOPMOST         1278
+#define IDS_PIN_FRAME           1279
+#define IDS_PIN_CLICKTHROUGH    1280
+#define IDS_MENU_TOGGLE_PINS    1281
+#define IDS_ACT_TOGGLE_PINS     1282
+#define IDS_PIN_CLICKTHROUGH_HINT 1283
+#define IDS_TOAST_PINS_HIDDEN   1284
+#define IDS_TOAST_PINS_SHOWN    1285
+
+// Düzenleyici metin aracı, kaydırmalı yakalama yönü
+#define IDS_TEXT_HINT_EDIT      1286
+#define IDS_SCROLL_HORIZONTAL   1287

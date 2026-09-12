@@ -73,6 +73,11 @@ set(CRISP_CORE_SOURCES
     src/UploadHttp.cpp
     src/UploadLog.cpp
     src/PinStore.cpp
+    src/UpdateCheck.cpp
+    src/GuideCompose.cpp
+    src/QrCode.cpp
+    src/ShortLink.cpp
+    src/TextEdit.cpp
 )
 
 set(CRISP_CORE_HEADERS
@@ -101,6 +106,11 @@ set(CRISP_CORE_HEADERS
     src/UploadInternal.h
     src/UploadLog.h
     src/PinStore.h
+    src/UpdateCheck.h
+    src/GuideCompose.h
+    src/QrCode.h
+    src/ShortLink.h
+    src/TextEdit.h
 )
 
 add_library(crisp_core STATIC ${CRISP_CORE_SOURCES} ${CRISP_CORE_HEADERS})
@@ -160,6 +170,9 @@ set(CRISP_APP_SOURCES
     src/AppUpload.cpp
     src/AppSettings.cpp
     src/AppText.cpp
+    src/AppGuide.cpp
+    src/AppPins.cpp
+    src/AppUpdate.cpp
     src/Overlay.cpp
     src/OverlayInput.cpp
     src/OverlaySession.cpp
@@ -329,6 +342,11 @@ if(CRISP_TESTS)
         tests/TestColorSpace.cpp
         tests/TestHistory.cpp
         tests/TestSound.cpp
+        tests/TestUpdateCheck.cpp
+        tests/TestGuideCompose.cpp
+        tests/TestQrCode.cpp
+        tests/TestShortLink.cpp
+        tests/TestTextEdit.cpp
     )
     # winmm: TestSound sesi gerÃ§ekten Ã§alarak biÃ§imi doÄŸrular.
     target_link_libraries(crisp_tests PRIVATE crisp_core winmm)

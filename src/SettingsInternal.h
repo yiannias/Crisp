@@ -19,10 +19,11 @@ namespace settings_ui {
 
 // Tasarım ölçüleri (96 DPI mantıksal piksel).
 //
-// ÜÇ SÜTUN: ayar sayısı iki sütuna sığmıyordu ve pencereyi uzatmak, alt
-// şeridin ekran dışına düşmesi demekti. Üçüncü sütun kısayollara ve yakalama
-// sonrası görevlere ayrıldı; ikisi de listeye dönüşen ve büyüyen gruplar.
-inline constexpr int kWidth = 980;
+// DÖRT SÜTUN. Üç sütun 0.8'de doluydu: her sütunun alt şeritle arasında on
+// pikselden az kalıyordu ve yeni bir satır sığmıyordu. Pencereyi uzatmak
+// %150 ölçekli 1080p ekranda görev çubuğunun altına taşırdı; genişletmek
+// aynı ekranda 1860 piksele geliyor ve sığıyor.
+inline constexpr int kWidth = 1240;
 inline constexpr int kHeight = 660;
 inline constexpr int kPad = 22;
 inline constexpr int kColumnGap = 24;
@@ -69,6 +70,10 @@ enum ControlId {
     kIdUploadService,
     kIdUploadKey,
     kIdAfterUpload,
+    kIdCheckUpdates,
+    kIdColorFormat,
+    kIdShortenLinks,
+    kIdShowQr,
     kIdReset,
     kIdOk,
     kIdCancel,
@@ -99,6 +104,8 @@ struct State {
     // güvenilmez: liste "yok" girdisiyle başlıyor ve ileride bir servis
     // listeden çıkarılabilir.
     std::vector<std::wstring> uploadServiceIds;
+    // Renk biçimi birleşik kutusundaki sıra → ayar kimliği ("hex", "rgb"...).
+    std::vector<std::wstring> colorFormatIds;
 
     unsigned dpi = 96;
     bool accepted = false;

@@ -71,6 +71,9 @@ HotkeyAction ActionFromArgument(const wchar_t* argument) noexcept {
         {L"scroll", HotkeyAction::Scrolling},
         {L"delayed-window", HotkeyAction::DelayedWindow},
         {L"delayed-monitor", HotkeyAction::DelayedMonitor},
+        {L"guide-step", HotkeyAction::GuideStep},
+        {L"guide-finish", HotkeyAction::GuideFinish},
+        {L"toggle-pins", HotkeyAction::TogglePins},
     };
     for (const Entry& entry : kEntries) {
         if (::_wcsicmp(argument, entry.name) == 0) {
@@ -95,6 +98,9 @@ int CommandForAction(HotkeyAction action) noexcept {
         case HotkeyAction::Scrolling:    return IDM_CAPTURE_SCROLL;
         case HotkeyAction::DelayedWindow:  return IDM_DELAYED_WINDOW;
         case HotkeyAction::DelayedMonitor: return IDM_DELAYED_MONITOR;
+        case HotkeyAction::GuideStep:    return IDM_GUIDE_ADD_REGION;
+        case HotkeyAction::GuideFinish:  return IDM_GUIDE_FINISH;
+        case HotkeyAction::TogglePins:   return IDM_TOGGLE_PINS;
         // BİLİNMEYEN VE BOŞ EYLEM BÖLGE SEÇER: kullanıcı exe'ye tıkladıysa
         // (argümansız ikinci örnek) beklediği şey budur.
         default:                         return IDM_CAPTURE_REGION;
@@ -137,6 +143,15 @@ void App::RunAction(HotkeyAction action) {
             return;
         case HotkeyAction::Scrolling:
             CaptureScrolling();
+            return;
+        case HotkeyAction::GuideStep:
+            GuideAddStep(false);
+            return;
+        case HotkeyAction::GuideFinish:
+            GuideFinish();
+            return;
+        case HotkeyAction::TogglePins:
+            TogglePins();
             return;
         default:
             return;

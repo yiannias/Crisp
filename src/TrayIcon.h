@@ -5,6 +5,8 @@
 
 #include <windows.h>
 
+#include <string>
+
 namespace crisp {
 
 class TrayIcon {
@@ -39,6 +41,13 @@ public:
         m_hasClipboardImage = hasClipboardImage;
     }
 
+    // Kılavuzdaki adım sayısı (0 ise "bitir/at" soluk) ve bilinen yeni sürüm
+    // (boşsa "Güncelleme var" satırı hiç eklenmez).
+    void SetExtraState(size_t guideSteps, std::wstring updateVersion) {
+        m_guideSteps = guideSteps;
+        m_updateVersion = std::move(updateVersion);
+    }
+
     // Bağlam menüsünü imlecin konumunda açar ve seçilen komut kimliğini
     // döndürür (iptal edilirse 0).
     [[nodiscard]] int ShowMenu(HWND owner);
@@ -53,6 +62,8 @@ private:
     bool m_themeKnown = false;
     bool m_hasLastRegion = false;
     bool m_hasClipboardImage = false;
+    size_t m_guideSteps = 0;
+    std::wstring m_updateVersion;
     const Settings* m_settings = nullptr;
 };
 

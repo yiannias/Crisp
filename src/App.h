@@ -14,6 +14,9 @@
 
 #include <windows.h>
 
+#include <string>
+#include <vector>
+
 namespace crisp {
 
 // Kaplamayı çalıştırıp seçili alanı kırpar (AppCapture.cpp). Yakalama ve
@@ -147,6 +150,28 @@ private:
     // Ekrandan bir pikselin rengini seçtirip panoya kopyalar.
     void PickColorToClipboard();
 
+    // --- AppGuide.cpp: adım adım kılavuz -------------------------------------
+    // Bir bölge (ya da pencere) yakalayıp kılavuza adım olarak ekler.
+    void GuideAddStep(bool preferWindowPick);
+    // Adımları tek bir numaralı görüntüde birleştirir ve normal bir yakalama
+    // gibi teslim eder; kılavuz boşalır.
+    void GuideFinish();
+    void GuideDiscard();
+
+    // --- AppPins.cpp -----------------------------------------------------------
+    // Açık iğnelerin hepsini gizler ya da geri getirir.
+    void TogglePins();
+
+    // --- AppUpdate.cpp: sürüm denetimi ---------------------------------------
+    // GitHub Releases'ı arka planda sorar. `manual` ise sonuç her durumda
+    // bir ileti kutusuyla söylenir; açılıştaki sessiz denetim yalnızca yeni
+    // sürüm varsa bildirir.
+    void CheckForUpdates(bool manual);
+    // WM_CRISP_UPDATE_RESULT'ın karşılığı; lParam'daki yükün sahipliğini alır.
+    void FinishUpdateCheck(LPARAM lParam);
+    // Bilinen yeni sürümün indirme sayfasını açar (tepsi menüsü öğesi).
+    void OpenUpdatePage();
+
     [[nodiscard]] bool SaveCapture(const Image& image, std::wstring& savedPath,
                                    HWND sourceWindow);
     void ReportSaveFailure();
@@ -200,6 +225,15 @@ private:
     unsigned m_captureCounter = 0;
 
     bool m_exitAfterFile = false;
+
+    // Kılavuzun biriken adımları (AppGuide.cpp).
+    std::vector<Image> m_guideSteps;
+
+    // Bilinen yeni sürüm; boşsa yok. Tepsi menüsü "Güncelleme var" satırını
+    // buna göre ekler (AppUpdate.cpp).
+    std::wstring m_updateVersion;
+    std::wstring m_updateUrl;
+    bool m_updateCheckRunning = false;
 };
 
 inline constexpr const wchar_t* kHostWindowClass = L"CrispMessageWindow";
