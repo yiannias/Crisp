@@ -76,6 +76,7 @@ set(CRISP_CORE_SOURCES
     src/UpdateCheck.cpp
     src/HttpGet.cpp
     src/GuideCompose.cpp
+    src/GuideDraw.cpp
     src/QrCode.cpp
     src/ShortLink.cpp
     src/TextEdit.cpp
