@@ -170,8 +170,11 @@ MessageResult ShowMessage(HINSTANCE instance, HWND owner,
     // Kutu SAHİBİNİN monitöründe açılır; sahip yoksa imlecin bulunduğu
     // monitörde. Birincil ekranda açmak, üç monitörlü bir kurulumda
     // kullanıcının bakmadığı yerde uyarı göstermek olurdu.
+    // GÖRÜNMEYEN SAHİP ÇAPA OLAMAZ: uygulamanın gizli ana penceresi (0,0)'da
+    // sıfır boyutlu durur ve ona göre ortalanan kutu ekranın köşesinde, başka
+    // pencerelerin arkasında açılıyordu. Sahip görünmüyorsa imleç esas alınır.
     POINT anchor{};
-    if (owner != nullptr) {
+    if (owner != nullptr && ::IsWindowVisible(owner)) {
         RECT ownerRect{};
         ::GetWindowRect(owner, &ownerRect);
         anchor = POINT{(ownerRect.left + ownerRect.right) / 2,
