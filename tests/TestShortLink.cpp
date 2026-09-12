@@ -30,6 +30,16 @@ CRISP_TEST(ShortLink, Yol_utf8_kodlar) {
     CHECK(path == "/create.php?format=simple&url=https%3A%2F%2Fx.io%2F%C3%A7%C4%B1");
 }
 
+CRISP_TEST(ShortLink, TinyUrl_yolu_ve_yaniti) {
+    CHECK(BuildTinyUrlPath(L"https://x.io/a?b=c") ==
+          "/api-create.php?url=https%3A%2F%2Fx.io%2Fa%3Fb%3Dc");
+    std::wstring out;
+    CHECK(ParseShortLinkResponse("https://tinyurl.com/28ecpl9z", out));
+    CHECK_STR(out, L"https://tinyurl.com/28ecpl9z");
+    CHECK(!ParseShortLinkResponse("https://tinyurl.com/", out));
+    CHECK(!ParseShortLinkResponse("Error", out));
+}
+
 CRISP_TEST(ShortLink, Yanit_kisa_baglanti) {
     std::wstring out;
     CHECK(ParseShortLinkResponse("https://is.gd/abcXYZ\n", out));

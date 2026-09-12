@@ -8,6 +8,9 @@
 #include "QrCode.h"
 #include "QrInternal.h"
 
+#include "ImageCodec.h"
+
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -203,4 +206,37 @@ CRISP_TEST(QrCode, Cizim_boyutlari_ve_sessiz_bolge) {
     Image bad;
     CHECK(!RenderQr(code, 0, 4, bad));
     CHECK(!RenderQr(QrCode{}, 4, 4, bad));
+}
+
+// DIŞ ÇÖZÜCÜ İÇİN DÖKÜM. Buradaki testler kodun kendi kurallarıyla tutarlı
+// olduğunu gösterir; bir telefonun onu OKUYABİLDİĞİNİ yalnızca bağımsız bir
+// çözücü gösterir. CRISP_QR_DUMP_DIR ortam değişkeni verilirse üç kod PNG
+// olarak oraya yazılır; verilmezse test hiçbir şey yapmaz.
+CRISP_TEST(QrCode, Dis_cozucu_icin_png_dokumu) {
+    wchar_t* dir = nullptr;
+    size_t length = 0;
+    if (::_wdupenv_s(&dir, &length, L"CRISP_QR_DUMP_DIR") != 0 || dir == nullptr) {
+        CHECK(true);
+        return;
+    }
+    const std::wstring folder{dir};
+    ::free(dir);
+
+    struct Sample {
+        const wchar_t* file;
+        std::string text;
+        QrEcLevel ec;
+    };
+    const Sample samples[] = {
+        {L"qr-url.png", "https://files.catbox.moe/ab12cd.png", QrEcLevel::M},
+        {L"qr-v7.png", std::string(120, 'x') + "?id=ç-ü-ş", QrEcLevel::L},
+        {L"qr-long.png", std::string(300, 'Q'), QrEcLevel::Q},
+    };
+    for (const Sample& sample : samples) {
+        QrCode qr;
+        CHECK(EncodeQr(sample.text, qr, sample.ec));
+        Image image;
+        CHECK(RenderQr(qr, 8, 4, image));
+        CHECK(SavePng(image, folder + L"\\" + sample.file));
+    }
 }

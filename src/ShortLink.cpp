@@ -5,11 +5,13 @@
 #include "UploadInternal.h"
 #include "Util.h"
 
+#include <cstring>
+
 namespace crisp {
 namespace {
 
-constexpr wchar_t kHost[] = L"is.gd";
-constexpr char kPrefix[] = "https://is.gd/";
+constexpr char kIsGdPrefix[] = "https://is.gd/";
+constexpr char kTinyPrefix[] = "https://tinyurl.com/";
 
 // Sorgu değeri için yüzde kodlaması. RFC 3986'nın ayrılmamış karakterleri
 // (harf, rakam, "-._~") olduğu gibi kalır; gerisi — "/" ve ":" dahil —
@@ -22,9 +24,9 @@ constexpr char kPrefix[] = "https://is.gd/";
 
 }  // namespace
 
-std::string BuildIsGdPath(const std::wstring& url) {
+[[nodiscard]] std::string PercentEncode(const std::wstring& url) {
     static constexpr char kHex[] = "0123456789ABCDEF";
-    std::string path = "/create.php?format=simple&url=";
+    std::string path;
     for (const unsigned char ch : WideToUtf8(url)) {
         if (Unreserved(ch)) {
             path.push_back(static_cast<char>(ch));
@@ -35,6 +37,19 @@ std::string BuildIsGdPath(const std::wstring& url) {
         }
     }
     return path;
+}
+
+[[nodiscard]] bool StartsWith(const std::string& text, const char* prefix) noexcept {
+    const size_t n = ::strlen(prefix);
+    return text.size() > n && text.compare(0, n, prefix) == 0;
+}
+
+std::string BuildIsGdPath(const std::wstring& url) {
+    return "/create.php?format=simple&url=" + PercentEncode(url);
+}
+
+std::string BuildTinyUrlPath(const std::wstring& url) {
+    return "/api-create.php?url=" + PercentEncode(url);
 }
 
 bool ParseShortLinkResponse(const std::string& body, std::wstring& out) {
@@ -49,8 +64,7 @@ bool ParseShortLinkResponse(const std::string& body, std::wstring& out) {
         --end;
     }
     const std::string trimmed = body.substr(begin, end - begin);
-    if (trimmed.size() <= sizeof(kPrefix) - 1 ||
-        trimmed.compare(0, sizeof(kPrefix) - 1, kPrefix) != 0) {
+    if (!StartsWith(trimmed, kIsGdPrefix) && !StartsWith(trimmed, kTinyPrefix)) {
         return false;
     }
     // Kısa bağlantı tek bir belirteçtir; içinde boşluk varsa bu bir hata
@@ -65,17 +79,29 @@ bool ParseShortLinkResponse(const std::string& body, std::wstring& out) {
 }
 
 bool ShortenLink(const std::wstring& url, std::wstring& shortUrl) {
-    std::string body;
-    unsigned status = 0;
-    if (!HttpGetText(kHost, Utf8ToWide(BuildIsGdPath(url)), std::wstring(), body, status)) {
-        LogV(L"Kısaltma: is.gd'ye ulaşılamadı");
-        return false;
+    struct Service {
+        const wchar_t* host;
+        std::string path;
+    };
+    const Service services[] = {
+        {L"is.gd", BuildIsGdPath(url)},
+        {L"tinyurl.com", BuildTinyUrlPath(url)},
+    };
+    for (const Service& service : services) {
+        std::string body;
+        unsigned status = 0;
+        if (!HttpGetText(service.host, Utf8ToWide(service.path),
+                         L"User-Agent: Crisp\r\n", body, status)) {
+            LogV(L"Kısaltma: %s'ye ulaşılamadı", service.host);
+            continue;
+        }
+        if (status < 200 || status >= 300 || !ParseShortLinkResponse(body, shortUrl)) {
+            LogV(L"Kısaltma: %s %u döndü: %.120hs", service.host, status, body.c_str());
+            continue;
+        }
+        return true;
     }
-    if (status < 200 || status >= 300 || !ParseShortLinkResponse(body, shortUrl)) {
-        LogV(L"Kısaltma: is.gd %u döndü: %.120hs", status, body.c_str());
-        return false;
-    }
-    return true;
+    return false;
 }
 
 }  // namespace crisp

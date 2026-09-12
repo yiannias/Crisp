@@ -283,7 +283,7 @@ BEGIN
     IDS_COLOR_FMT_CSSVAR    "CSS variable"
     IDS_COLOR_FMT_TAILWIND  "Nearest Tailwind colour"
     IDS_TOAST_COLOR_COPIED  "Colour copied"
-    IDS_SET_SHORTEN_LINKS   "Shorten the link (is.gd)"
+    IDS_SET_SHORTEN_LINKS   "Shorten the link (is.gd, tinyurl)"
     IDS_SET_SHOW_QR         "Show a QR code after uploading"
     IDS_QR_SCAN_HINT        "Scan to open on your phone"
     IDS_PIN_TOPMOST         "Always on top"
