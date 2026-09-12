@@ -27,8 +27,33 @@ namespace crisp {
 [[nodiscard]] bool PinImageWithView(HINSTANCE instance, const Image& image,
                                     POINT topLeft, int zoom, unsigned opacity);
 
+// İğnenin görünümünün tamamı: yakınlaştırma ve saydamlığa ek olarak üç
+// açma-kapama ve gizlilik. PinRecord'daki alanların birebir karşılığı, ama
+// AYRI TÜR: PinRecord diskteki satırı (dosya adı, konum) anlatır, bu ise
+// pencereye nasıl görüneceğini söyler; PinWindow.h PinStore.h'yi içermez.
+struct PinView {
+    int zoom = 100;
+    unsigned opacity = 255;
+    bool topMost = true;
+    bool frame = false;
+    bool clickThrough = false;
+    bool hidden = false;   // pencere oluşturulur ama gösterilmez
+};
+
+[[nodiscard]] bool PinImageWithView(HINSTANCE instance, const Image& image,
+                                    POINT topLeft, const PinView& view);
+
 // Açık tüm iğneleri kapatır (uygulama çıkışında).
 void CloseAllPins() noexcept;
+
+// GRUP GİZLE/GÖSTER. Tepsi menüsü ve kısayol tüm iğneleri tek seferde saklar:
+// ekran bir sunum ya da toplantı için boşaltılır, sonra hepsi geri gelir.
+// Görünürlük PENCEREDE YAŞAR (IsWindowVisible); ayrıca bir alan tutulmaz,
+// yoksa ikisi bir gün ayrışırdı. Tıklama-geçirgen bir iğne gizlenip
+// gösterildiğinde geçirgenliğini korur: gizlemek yalnızca ShowWindow'dur.
+void HideAllPins(bool hide) noexcept;
+[[nodiscard]] bool AnyPinVisible() noexcept;
+[[nodiscard]] int OpenPinCount() noexcept;
 
 // AÇIK İĞNELERİ DİSKE YAZAR.
 //

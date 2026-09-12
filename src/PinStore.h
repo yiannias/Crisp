@@ -28,6 +28,15 @@ struct PinRecord {
     LONG y = 0;
     int zoom = 100;           // yüzde
     unsigned opacity = 255;   // 0-255
+
+    // GÖRÜNÜM BAYRAKLARI. Satırda tek bir harf dizisi olarak durur ("TFCH":
+    // harf varsa doğru, yoksa `-`). Dört ayrı sütun yerine tek alan: eski
+    // beş alanlı satırlar hiç dokunulmadan okunmaya devam eder ve ileride bir
+    // bayrak daha eklemek yeni bir sütun değil, yeni bir harf demek olur.
+    bool topMost = true;        // T — her zaman üstte
+    bool frame = false;         // F — vurgu renkli çerçeve
+    bool clickThrough = false;  // C — fare tıklamaları alttaki pencereye geçer
+    bool hidden = false;        // H — tepsiden "gizle" ile saklanmış
 };
 
 // İğnelerin klasörü: %LOCALAPPDATA%\Crisp\Pins
@@ -51,6 +60,12 @@ bool ClearPinStore() noexcept;
 
 // Satırı çözer. Bozuk satır false döner ve atlanır; bir iğnenin kaybı,
 // dosyanın tamamının reddedilmesinden iyidir.
+//
+// Altıncı alan (bayraklar) İSTEĞE BAĞLI: 0.8 sürümünün beş alanlı satırları
+// varsayılan bayraklarla kabul edilir. Alan varsa harf sırası önemsizdir;
+// tanınmayan bir karakter içeriyorsa alanın tamamı yok sayılır ve satır yine
+// varsayılanlarla kabul edilir — bozuk bir bayrak yüzünden görüntüyü kaybetmek
+// orantısız olurdu.
 [[nodiscard]] bool ParsePinLine(const std::wstring& line, PinRecord& out);
 
 }  // namespace crisp

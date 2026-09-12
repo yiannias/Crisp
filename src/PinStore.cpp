@@ -61,14 +61,43 @@ std::wstring FormatPinLine(const PinRecord& record) {
     ::swprintf_s(numbers, L"%ld%c%ld%c%d%c%u", record.x, kSeparator, record.y,
                  kSeparator, record.zoom, kSeparator, record.opacity);
 
-    // DOSYA ADI EN SONDA. İçinde sekme bulunması beklenmez ama bulunursa
-    // yalnızca kendi alanını bozar; sayılar önde olduğu için hepsi okunmuş
-    // olur.
+    // DOSYA ADI SAYILARDAN SONRA. İçinde sekme bulunması beklenmez ama
+    // bulunursa yalnızca kendi alanını (ve ardındaki bayrakları) bozar;
+    // sayılar önde olduğu için hepsi okunmuş olur.
     std::wstring line = numbers;
     line += kSeparator;
     line += record.imageFile;
+
+    // BAYRAKLAR EN SONDA, çünkü sonradan eklendi: 0.8'in çözümleyicisi beşinci
+    // alandan sonrasını okumuyor, dolayısıyla bu dosyayı eski sürüm de
+    // açabilir. Kapalı bayrak `-` olarak yazılır ki alan hiç boş kalmasın ve
+    // dosyayı elle okuyan biri dört yuvanın hangisinin dolu olduğunu görsün.
+    line += kSeparator;
+    line += record.topMost ? L'T' : L'-';
+    line += record.frame ? L'F' : L'-';
+    line += record.clickThrough ? L'C' : L'-';
+    line += record.hidden ? L'H' : L'-';
     return line;
 }
+
+namespace {
+
+// Bayrak alanını çözer. Sıra önemsiz; yalnızca tanınan harfler ve `-` kabul
+// edilir. Başka bir karakter varsa alan bir bütün olarak reddedilir ve `out`
+// dokunulmadan (varsayılanlarla) bırakılır; çağıran satırı yine kabul eder.
+void ParsePinFlags(const std::wstring& flags, PinRecord& out) {
+    for (const wchar_t c : flags) {
+        if (c != L'T' && c != L'F' && c != L'C' && c != L'H' && c != L'-') {
+            return;
+        }
+    }
+    out.topMost = flags.find(L'T') != std::wstring::npos;
+    out.frame = flags.find(L'F') != std::wstring::npos;
+    out.clickThrough = flags.find(L'C') != std::wstring::npos;
+    out.hidden = flags.find(L'H') != std::wstring::npos;
+}
+
+}  // namespace
 
 bool ParsePinLine(const std::wstring& line, PinRecord& out) {
     size_t at = 0;
@@ -94,6 +123,16 @@ bool ParsePinLine(const std::wstring& line, PinRecord& out) {
         file.find(L'/') != std::wstring::npos ||
         file.find(L':') != std::wstring::npos) {
         return false;
+    }
+
+    // ALTINCI ALAN İSTEĞE BAĞLI: yoksa eski sürümün satırıdır ve bayraklar
+    // PinRecord'un varsayılanlarında kalır. Boş bir alan (satır sonunda
+    // yalnız bir sekme) da aynı kapıya çıkar: hiçbir harf yok demek, üstte
+    // durmayan bir iğne demek olurdu ve bu bilinçli bir seçim değil.
+    out = PinRecord();
+    std::wstring flags;
+    if (NextField(line, at, flags) && !flags.empty()) {
+        ParsePinFlags(flags, out);
     }
 
     out.imageFile = file;

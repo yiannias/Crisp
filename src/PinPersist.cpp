@@ -11,20 +11,67 @@
 #include "PinWindow.h"
 
 #include "ImageCodec.h"
+#include "PinInternal.h"
 #include "PinStore.h"
 #include "Util.h"
+
+#include <shlobj.h>
 
 #include <cstdio>
 #include <string>
 #include <vector>
 
 namespace crisp {
+namespace {
 
-// PinWindow.cpp'deki listeye erişim. Başlıkta değil çünkü `PinState` iç bir
-// tür; iki dosya arasında paylaşılan tek şey bu iki işlev.
-[[nodiscard]] std::vector<PinRecord> CollectOpenPins();
-[[nodiscard]] bool WritePinImage(size_t index, const std::wstring& folder,
-                                 std::wstring& fileName);
+// Açık iğneleri diske yazılacak kayıtlara çevirir; görüntüleri de yazar.
+[[nodiscard]] std::vector<PinRecord> CollectOpenPins() {
+    std::vector<PinRecord> records;
+    const std::wstring folder = PinFolder();
+    if (folder.empty()) {
+        return records;
+    }
+    ::SHCreateDirectoryExW(nullptr, folder.c_str(), nullptr);
+
+    size_t index = 0;
+    for (const auto& entry : pin::Pins()) {
+        if (entry == nullptr || entry->window == nullptr || !entry->image.Valid()) {
+            continue;
+        }
+
+        // KONUM PENCEREDEN OKUNUR, saklanan bir alandan değil: kullanıcı iğneyi
+        // sürükleyerek taşıyor ve o hareket hiçbir yere yazılmıyor. Görünürlük
+        // de öyle: gizle/göster yalnızca ShowWindow çağırır.
+        RECT bounds{};
+        if (::GetWindowRect(entry->window, &bounds) == FALSE) {
+            continue;
+        }
+
+        wchar_t name[32] = {};
+        ::swprintf_s(name, L"pin-%02zu.png", index);
+        const std::wstring path = folder + L"\\" + name;
+        if (!SavePng(entry->image, path)) {
+            LogV(L"İğne görüntüsü yazılamadı: %s", path.c_str());
+            continue;
+        }
+
+        PinRecord record;
+        record.imageFile = name;
+        record.x = bounds.left;
+        record.y = bounds.top;
+        record.zoom = entry->zoom;
+        record.opacity = entry->opacity;
+        record.topMost = entry->topMost;
+        record.frame = entry->frame;
+        record.clickThrough = entry->clickThrough;
+        record.hidden = ::IsWindowVisible(entry->window) == FALSE;
+        records.push_back(std::move(record));
+        ++index;
+    }
+    return records;
+}
+
+}  // namespace
 
 void SaveOpenPins() {
     // ESKİSİ ÖNCE SİLİNİR, YENİSİ SONRA YAZILIR — VE SIRA BU YÜZDEN ÖNEMLİ.
@@ -60,8 +107,16 @@ int RestorePins(HINSTANCE instance) {
             LogV(L"İğne geri yüklenemedi: %s", record.imageFile.c_str());
             continue;
         }
-        if (PinImageWithView(instance, image, POINT{record.x, record.y},
-                             record.zoom, record.opacity)) {
+        // Kayıt görünüme birebir aktarılır; gizli bırakılmış bir iğne gizli
+        // geri gelir ve tepsiden "göster" ile ortaya çıkar.
+        PinView view;
+        view.zoom = record.zoom;
+        view.opacity = record.opacity;
+        view.topMost = record.topMost;
+        view.frame = record.frame;
+        view.clickThrough = record.clickThrough;
+        view.hidden = record.hidden;
+        if (PinImageWithView(instance, image, POINT{record.x, record.y}, view)) {
             ++restored;
         }
     }

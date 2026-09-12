@@ -1,18 +1,18 @@
 // PinWindow.cpp — bkz. PinWindow.h.
+//
+// Bağlam menüsü ve menünün komutları PinMenu.cpp'de; bu dosya pencerenin
+// ömrünü, mesajlarını ve çizimini anlatır.
 #include "PinWindow.h"
 
 #include "ClipboardImage.h"
 #include "Geometry.h"
 #include "ImageCodec.h"
-#include "PinStore.h"
 #include "Localization.h"
-#include "MessageWindow.h"
+#include "PinInternal.h"
 #include "Theme.h"
 #include "resource.h"
 #include "Util.h"
 
-#include <commdlg.h>
-#include <shlobj.h>
 // windowsx.h: GET_X_LPARAM / GET_Y_LPARAM. Elle kaydırmak yerine makro
 // kullanılır çünkü koordinatlar İŞARETLİDİR ve çok monitörlü kurulumda
 // negatif olabilir; LOWORD ile çıkarmak onları 65000 gibi değerlere çevirir.
@@ -24,37 +24,19 @@
 namespace crisp {
 namespace {
 
+using pin::PinState;
+
 constexpr const wchar_t* kWindowClass = L"CrispPinWindow";
 
-
-// Menü komutları yalnızca bu dosyada anlamlı; resource.h'yi kirletmezler.
-enum PinCommand {
-    kPinCopy = 1,
-    kPinSaveAs,
-    kPinActualSize,
-    kPinOpacityFull,
-    kPinOpacityHalf,
-    kPinClose,
-};
-
-struct PinState {
-    Image image;
-    unique_hdc imageDc;
-    int zoom = 100;
-    BYTE opacity = 255;
-    HWND window = nullptr;
-};
-
-// Açık iğneler. Dosya kapsamlı static: ev kuralı global değişkeni yasaklar ama
-// .cpp içindeki static'e izin verir. unique_ptr, PinState'in adresinin liste
-// büyüdükçe değişmemesini garanti eder — pencere verisi o adrese işaret ediyor.
-std::vector<std::unique_ptr<PinState>>& Pins() {
-    static std::vector<std::unique_ptr<PinState>> pins;
-    return pins;
-}
+// Çerçevenin kalınlığı. KENARIN İÇİNE ÇİZİLİR, pencere büyütülmez: pencere
+// ölçüsü görüntü ölçüsüne eşit kalınca yakınlaştırma, konum kaydetme ve
+// çift tıkla gerçek boyut hesaplarının hiçbiri çerçeveden haberdar olmak
+// zorunda kalmaz. Bedeli görüntünün en dıştaki iki pikselinin örtülmesi ve
+// bu, çerçeveyi açan kullanıcının zaten kabul ettiği bir şey.
+constexpr int kFrameThickness = 2;
 
 void ForgetPin(PinState* state) noexcept {
-    auto& pins = Pins();
+    auto& pins = pin::Pins();
     for (auto it = pins.begin(); it != pins.end(); ++it) {
         if (it->get() == state) {
             pins.erase(it);
@@ -63,113 +45,75 @@ void ForgetPin(PinState* state) noexcept {
     }
 }
 
-void ApplyZoom(PinState& state, int newZoom, POINT anchorScreen) {
-    if (newZoom == state.zoom) {
+void PaintPin(HWND window, const PinState& state) {
+    PAINTSTRUCT paint{};
+    const HDC dc = ::BeginPaint(window, &paint);
+    if (dc == nullptr) {
         return;
     }
 
-    RECT bounds{};
-    if (!::GetWindowRect(state.window, &bounds)) {
-        return;
+    RECT client{};
+    ::GetClientRect(window, &client);
+
+    // COLORONCOLOR yerine HALFTONE: iğne küçültüldüğünde metin okunabilir
+    // kalsın. Büyütmede piksel bloklarını korumak için 100%'ün üstünde ham
+    // kopyaya düşülür.
+    if (state.zoom > 100) {
+        ::SetStretchBltMode(dc, COLORONCOLOR);
+    } else {
+        ::SetStretchBltMode(dc, HALFTONE);
+        ::SetBrushOrgEx(dc, 0, 0, nullptr);
     }
 
-    const SIZE oldSize{geom::Width(bounds), geom::Height(bounds)};
-    const SIZE newSize = geom::ScaledSize(
-        SIZE{state.image.Width(), state.image.Height()}, newZoom);
-    const POINT origin = geom::ZoomAnchoredOrigin(
-        POINT{bounds.left, bounds.top}, anchorScreen, oldSize, newSize);
+    ::StretchBlt(dc, 0, 0, geom::Width(client), geom::Height(client),
+                 state.imageDc.get(), 0, 0, state.image.Width(),
+                 state.image.Height(), SRCCOPY);
 
-    state.zoom = newZoom;
-    ::SetWindowPos(state.window, HWND_TOPMOST, origin.x, origin.y, newSize.cx,
-                   newSize.cy, SWP_NOACTIVATE);
-    ::InvalidateRect(state.window, nullptr, FALSE);
-}
-
-void SaveAs(const PinState& state) {
-    // UZUN YOL TAMPONU: MAX_PATH'ten uzun bir hedef seçildiğinde iletişim
-    // kutusu FNERR_BUFFERTOOSMALL ile döner ve bu, iptal sanılırdı.
-    std::wstring path(32768, L'\0');
-    const std::wstring suggestion = L"Crisp " + TimestampForFileName() + L".png";
-    ::wcscpy_s(path.data(), path.size(), suggestion.c_str());
-
-    OPENFILENAMEW dialog{};
-    dialog.lStructSize = sizeof(dialog);
-    dialog.hwndOwner = state.window;
-    // Dilden bağımsız süzgeç metni: düzenleyicinin "Farklı kaydet"iyle aynı.
-    dialog.lpstrFilter = L"PNG (*.png)\0*.png\0";
-    dialog.lpstrFile = path.data();
-    dialog.nMaxFile = static_cast<DWORD>(path.size());
-    dialog.lpstrDefExt = L"png";
-    dialog.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_EXPLORER;
-
-    if (!::GetSaveFileNameW(&dialog)) {
-        return;   // kullanıcı iptal etti; hata değil
-    }
-    if (!SavePng(state.image, path)) {
-        ShowMessage(::GetModuleHandleW(nullptr), state.window,
-                    Loc::Str(IDS_SAVE_FAILED), MessageIcon::Error);
-    }
-}
-
-void ShowContextMenu(PinState& state) {
-    const HMENU menu = ::CreatePopupMenu();
-    if (menu == nullptr) {
-        return;
-    }
-
-    const std::wstring copyText = Loc::MenuText(IDS_PIN_COPY, IDS_ACCEL_COPY);
-    const std::wstring saveText = Loc::MenuText(IDS_PIN_SAVE_AS, IDS_ACCEL_SAVE);
-    const std::wstring sizeText = Loc::Str(IDS_PIN_ACTUAL_SIZE);
-    const std::wstring opaqueText = Loc::Str(IDS_PIN_OPAQUE);
-    const std::wstring translucentText = Loc::Str(IDS_PIN_TRANSLUCENT);
-    const std::wstring closeText = Loc::MenuText(IDS_PIN_CLOSE, IDS_ACCEL_ESC);
-
-    ::AppendMenuW(menu, MF_STRING, kPinCopy, copyText.c_str());
-    ::AppendMenuW(menu, MF_STRING, kPinSaveAs, saveText.c_str());
-    ::AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    ::AppendMenuW(menu, MF_STRING, kPinActualSize, sizeText.c_str());
-    ::AppendMenuW(menu, MF_STRING | (state.opacity == 255 ? MF_CHECKED : 0),
-                  kPinOpacityFull, opaqueText.c_str());
-    ::AppendMenuW(menu, MF_STRING | (state.opacity != 255 ? MF_CHECKED : 0),
-                  kPinOpacityHalf, translucentText.c_str());
-    ::AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    ::AppendMenuW(menu, MF_STRING, kPinClose, closeText.c_str());
-
-    POINT cursor{};
-    ::GetCursorPos(&cursor);
-    ::SetForegroundWindow(state.window);
-
-    const int command = ::TrackPopupMenuEx(
-        menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY, cursor.x, cursor.y,
-        state.window, nullptr);
-    ::DestroyMenu(menu);
-
-    switch (command) {
-        case kPinCopy:
-            if (!CopyImageToClipboard(state.image, state.window)) {
-                LogV(L"İğneden panoya kopyalama başarısız");
+    // Çerçeve İSTEĞE BAĞLI: iğnenin nerede bitip masaüstünün nerede başladığı
+    // benzer renkli bir arka planda belirsiz kalabiliyor, ama her iğnenin
+    // etrafında bir çizgi de görüntüyü karşılaştırırken dikkat dağıtıyordu.
+    // Kullanıcı isterse açar. Vurgu rengi, kalınlık kadar iç içe FrameRect.
+    if (state.frame) {
+        const HBRUSH brush = ::CreateSolidBrush(theme::Colors().accent);
+        if (brush != nullptr) {
+            RECT edge = client;
+            for (int i = 0; i < kFrameThickness; ++i) {
+                ::FrameRect(dc, &edge, brush);
+                ::InflateRect(&edge, -1, -1);
             }
-            break;
-        case kPinSaveAs:
-            SaveAs(state);
-            break;
-        case kPinActualSize:
-            ApplyZoom(state, 100, cursor);
-            break;
-        case kPinOpacityFull:
-            state.opacity = 255;
-            ::SetLayeredWindowAttributes(state.window, 0, state.opacity, LWA_ALPHA);
-            break;
-        case kPinOpacityHalf:
-            state.opacity = 140;
-            ::SetLayeredWindowAttributes(state.window, 0, state.opacity, LWA_ALPHA);
-            break;
-        case kPinClose:
-            ::DestroyWindow(state.window);
-            break;
-        default:
-            break;
+            ::DeleteObject(brush);
+        }
     }
+    ::EndPaint(window, &paint);
+}
+
+// Odaktaki iğnenin klavyesi. Esc kapatır; Ctrl+C / Ctrl+S menüdekiyle aynı.
+// F çerçeveyi, T "her zaman üstte"yi açıp kapar — menü metinlerinde
+// yazmayan, ama tıklama-geçirgen bir iğnede (sağ tık çalışmazken) hâlâ
+// ulaşılabilir olan tek yol bu.
+[[nodiscard]] bool HandleKey(PinState& state, WPARAM key) {
+    if (key == VK_ESCAPE) {
+        ::DestroyWindow(state.window);
+        return true;
+    }
+    const bool control = (::GetKeyState(VK_CONTROL) & 0x8000) != 0;
+    if (control && key == 'C') {
+        (void)CopyImageToClipboard(state.image, state.window);
+        return true;
+    }
+    if (control && key == 'S') {
+        pin::SaveAs(state);
+        return true;
+    }
+    if (!control && key == 'F') {
+        pin::SetFrame(state, !state.frame);
+        return true;
+    }
+    if (!control && key == 'T') {
+        pin::SetTopMost(state, !state.topMost);
+        return true;
+    }
+    return false;
 }
 
 LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -184,38 +128,13 @@ LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             return TRUE;
         }
 
-        case WM_PAINT: {
-            PAINTSTRUCT paint{};
-            const HDC dc = ::BeginPaint(window, &paint);
-            if (dc != nullptr && state != nullptr) {
-                RECT client{};
-                ::GetClientRect(window, &client);
-
-                // COLORONCOLOR yerine HALFTONE: iğne küçültüldüğünde metin
-                // okunabilir kalsın. Büyütmede piksel bloklarını korumak için
-                // 100%'ün üstünde ham kopyaya düşülür.
-                if (state->zoom > 100) {
-                    ::SetStretchBltMode(dc, COLORONCOLOR);
-                } else {
-                    ::SetStretchBltMode(dc, HALFTONE);
-                    ::SetBrushOrgEx(dc, 0, 0, nullptr);
-                }
-
-                ::StretchBlt(dc, 0, 0, geom::Width(client), geom::Height(client),
-                             state->imageDc.get(), 0, 0, state->image.Width(),
-                             state->image.Height(), SRCCOPY);
-
-                // İnce çerçeve: iğnenin nerede bitip masaüstünün nerede
-                // başladığı, benzer renkli bir arka planda belirsiz kalırdı.
-                const HBRUSH brush = ::CreateSolidBrush(theme::Colors().accent);
-                if (brush != nullptr) {
-                    ::FrameRect(dc, &client, brush);
-                    ::DeleteObject(brush);
-                }
+        case WM_PAINT:
+            if (state != nullptr) {
+                PaintPin(window, *state);
+            } else {
+                ::ValidateRect(window, nullptr);
             }
-            ::EndPaint(window, &paint);
             return 0;
-        }
 
         case WM_ERASEBKGND:
             return 1;
@@ -231,7 +150,7 @@ LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             }
             const int delta = GET_WHEEL_DELTA_WPARAM(wParam);
             const POINT cursor{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
-            ApplyZoom(*state, geom::ZoomStep(state->zoom, delta), cursor);
+            pin::ApplyZoom(*state, geom::ZoomStep(state->zoom, delta), cursor);
             return 0;
         }
 
@@ -243,7 +162,7 @@ LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
             if (state != nullptr) {
                 POINT cursor{};
                 ::GetCursorPos(&cursor);
-                ApplyZoom(*state, 100, cursor);
+                pin::ApplyZoom(*state, 100, cursor);
             }
             return 0;
         }
@@ -251,30 +170,16 @@ LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
         case WM_RBUTTONUP:
         case WM_CONTEXTMENU: {
             if (state != nullptr) {
-                ShowContextMenu(*state);
+                pin::ShowContextMenu(*state);
             }
             return 0;
         }
 
-        case WM_KEYDOWN: {
-            if (state == nullptr) {
-                break;
-            }
-            if (wParam == VK_ESCAPE) {
-                ::DestroyWindow(window);
-                return 0;
-            }
-            const bool control = (::GetKeyState(VK_CONTROL) & 0x8000) != 0;
-            if (control && wParam == 'C') {
-                (void)CopyImageToClipboard(state->image, window);
-                return 0;
-            }
-            if (control && wParam == 'S') {
-                SaveAs(*state);
+        case WM_KEYDOWN:
+            if (state != nullptr && HandleKey(*state, wParam)) {
                 return 0;
             }
             break;
-        }
 
         case WM_NCDESTROY: {
             // Durum burada silinir: WM_DESTROY'da silmek, sonrasında gelen
@@ -312,21 +217,59 @@ LRESULT CALLBACK PinProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam
     return registered;
 }
 
+// Pencereyi ekranın içinde tutar: yakalama sağ kenardan yapıldıysa iğne
+// tamamen görünmez bir yere açılabilirdi.
+[[nodiscard]] RECT PlaceOnScreen(POINT topLeft, int width, int height) {
+    const RECT screen = VirtualScreenRect();
+    RECT placement{topLeft.x, topLeft.y, topLeft.x + width, topLeft.y + height};
+    if (placement.right > screen.right) {
+        placement.left -= placement.right - screen.right;
+    }
+    if (placement.bottom > screen.bottom) {
+        placement.top -= placement.bottom - screen.bottom;
+    }
+    if (placement.left < screen.left) {
+        placement.left = screen.left;
+    }
+    if (placement.top < screen.top) {
+        placement.top = screen.top;
+    }
+    return placement;
+}
+
 }  // namespace
 
+// İşlev içi static: ev kuralı global değişkeni yasaklar ama .cpp içindeki
+// static'e izin verir; başlıkta yalnızca erişimcinin bildirimi var.
+std::vector<std::unique_ptr<PinState>>& pin::Pins() {
+    static std::vector<std::unique_ptr<PinState>> pins;
+    return pins;
+}
+
 bool PinImageToScreen(HINSTANCE instance, const Image& image, POINT topLeft) {
-    return PinImageWithView(instance, image, topLeft, 100, 255);
+    return PinImageWithView(instance, image, topLeft, PinView{});
 }
 
 bool PinImageWithView(HINSTANCE instance, const Image& image, POINT topLeft,
                       int zoom, unsigned opacity) {
+    PinView view;
+    view.zoom = zoom;
+    view.opacity = opacity;
+    return PinImageWithView(instance, image, topLeft, view);
+}
+
+bool PinImageWithView(HINSTANCE instance, const Image& image, POINT topLeft,
+                      const PinView& view) {
     if (!image.Valid() || !EnsureWindowClass(instance)) {
         return false;
     }
 
     auto state = std::make_unique<PinState>();
-    state->zoom = zoom;
-    state->opacity = static_cast<BYTE>(opacity);
+    state->zoom = view.zoom;
+    state->opacity = static_cast<BYTE>(view.opacity);
+    state->topMost = view.topMost;
+    state->frame = view.frame;
+    state->clickThrough = view.clickThrough;
 
     // Görüntü kopyalanır: çağıranın Image'ı bu çağrıdan sonra yok olabilir.
     if (!CropImage(image, 0, 0, image.Width(), image.Height(), state->image)) {
@@ -343,38 +286,29 @@ bool PinImageWithView(HINSTANCE instance, const Image& image, POINT topLeft,
     }
     ::SelectObject(state->imageDc.get(), state->image.Handle());
 
-    // Ekran dışına düşmesin: yakalama sağ kenardan yapıldıysa iğne tamamen
-    // görünmez bir yere açılabilirdi.
     // PENCERE ÖLÇÜSÜ YAKINLAŞTIRMAYA GÖRE. %150'de bırakılmış bir iğne
     // görüntünün ham ölçüsüyle açılsaydı, geri gelen pencere kullanıcının
     // bıraktığından küçük olurdu.
-    const int shownWidth =
-        ::MulDiv(state->image.Width(), state->zoom, 100);
-    const int shownHeight =
-        ::MulDiv(state->image.Height(), state->zoom, 100);
+    const int shownWidth = ::MulDiv(state->image.Width(), state->zoom, 100);
+    const int shownHeight = ::MulDiv(state->image.Height(), state->zoom, 100);
+    const RECT placement = PlaceOnScreen(topLeft, shownWidth, shownHeight);
 
-    const RECT screen = VirtualScreenRect();
-    RECT placement{topLeft.x, topLeft.y, topLeft.x + shownWidth,
-                   topLeft.y + shownHeight};
-    if (placement.right > screen.right) {
-        placement.left -= placement.right - screen.right;
+    // Stil daha oluşturulurken görünüme göre kurulur: önce üstte açıp sonra
+    // indirmek, kapalı bıraktığı "her zaman üstte"yi bir anlığına da olsa
+    // kullanıcıya göstermek olurdu.
+    DWORD exStyle = WS_EX_TOOLWINDOW | WS_EX_LAYERED;
+    if (state->topMost) {
+        exStyle |= WS_EX_TOPMOST;
     }
-    if (placement.bottom > screen.bottom) {
-        placement.top -= placement.bottom - screen.bottom;
-    }
-    if (placement.left < screen.left) {
-        placement.left = screen.left;
-    }
-    if (placement.top < screen.top) {
-        placement.top = screen.top;
+    if (state->clickThrough) {
+        exStyle |= WS_EX_TRANSPARENT;
     }
 
     const std::wstring pinTitle = Loc::Str(IDS_PIN_TITLE);
     PinState* raw = state.get();
     const HWND window = ::CreateWindowExW(
-        WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED, kWindowClass,
-        pinTitle.c_str(), WS_POPUP, placement.left, placement.top,
-        shownWidth, shownHeight, nullptr, nullptr, instance,
+        exStyle, kWindowClass, pinTitle.c_str(), WS_POPUP, placement.left,
+        placement.top, shownWidth, shownHeight, nullptr, nullptr, instance,
         raw);
 
     if (window == nullptr) {
@@ -385,70 +319,54 @@ bool PinImageWithView(HINSTANCE instance, const Image& image, POINT topLeft,
     raw->window = window;
     theme::ApplyToWindow(window);
     ::SetLayeredWindowAttributes(window, 0, raw->opacity, LWA_ALPHA);
-    Pins().push_back(std::move(state));
+    pin::Pins().push_back(std::move(state));
 
-    ::ShowWindow(window, SW_SHOWNOACTIVATE);
-    ::UpdateWindow(window);
+    // GİZLİ GERİ YÜKLENEN İĞNE GÖSTERİLMEZ. Kullanıcı çıkmadan önce tepsiden
+    // "gizle" demişti; açılışta hepsinin geri fırlaması o tercihi çiğnerdi.
+    // Pencere WS_VISIBLE olmadan oluşturuldu; ShowWindow'u atlamak yeter.
+    if (!view.hidden) {
+        ::ShowWindow(window, SW_SHOWNOACTIVATE);
+        ::UpdateWindow(window);
+    }
     return true;
-}
-
-// Açık iğneleri diske yazılacak kayıtlara çevirir; görüntüleri de yazar.
-//
-// BURADA, ÇÜNKÜ `PinState` BU DOSYAYA AİT. Kaydetme mantığının geri kalanı
-// PinPersist.cpp'de; oraya çıkan tek şey bu işlev.
-std::vector<PinRecord> CollectOpenPins() {
-    std::vector<PinRecord> records;
-    const std::wstring folder = PinFolder();
-    if (folder.empty()) {
-        return records;
-    }
-    ::SHCreateDirectoryExW(nullptr, folder.c_str(), nullptr);
-
-    size_t index = 0;
-    for (const auto& pin : Pins()) {
-        if (pin == nullptr || pin->window == nullptr || !pin->image.Valid()) {
-            continue;
-        }
-
-        // KONUM PENCEREDEN OKUNUR, saklanan bir alandan değil: kullanıcı iğneyi
-        // sürükleyerek taşıyor ve o hareket hiçbir yere yazılmıyor.
-        RECT bounds{};
-        if (::GetWindowRect(pin->window, &bounds) == FALSE) {
-            continue;
-        }
-
-        wchar_t name[32] = {};
-        ::swprintf_s(name, L"pin-%02zu.png", index);
-        const std::wstring path = folder + L"\\" + name;
-        if (!SavePng(pin->image, path)) {
-            LogV(L"İğne görüntüsü yazılamadı: %s", path.c_str());
-            continue;
-        }
-
-        PinRecord record;
-        record.imageFile = name;
-        record.x = bounds.left;
-        record.y = bounds.top;
-        record.zoom = pin->zoom;
-        record.opacity = pin->opacity;
-        records.push_back(std::move(record));
-        ++index;
-    }
-    return records;
 }
 
 void CloseAllPins() noexcept {
     // Kopya üzerinden gezilir: DestroyWindow, WM_NCDESTROY üzerinden listeyi
     // değiştirir ve canlı listede yineleme geçersiz yineleyiciye düşerdi.
     std::vector<HWND> windows;
-    for (const auto& pin : Pins()) {
-        windows.push_back(pin->window);
+    for (const auto& entry : pin::Pins()) {
+        windows.push_back(entry->window);
     }
     for (const HWND window : windows) {
         if (window != nullptr) {
             ::DestroyWindow(window);
         }
     }
+}
+
+void HideAllPins(bool hide) noexcept {
+    for (const auto& entry : pin::Pins()) {
+        if (entry != nullptr && entry->window != nullptr) {
+            // SW_SHOWNOACTIVATE: kısayoldan gösterilen iğneler odağı
+            // kullanıcının o an çalıştığı pencereden çalmamalı.
+            ::ShowWindow(entry->window, hide ? SW_HIDE : SW_SHOWNOACTIVATE);
+        }
+    }
+}
+
+bool AnyPinVisible() noexcept {
+    for (const auto& entry : pin::Pins()) {
+        if (entry != nullptr && entry->window != nullptr &&
+            ::IsWindowVisible(entry->window) != FALSE) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int OpenPinCount() noexcept {
+    return static_cast<int>(pin::Pins().size());
 }
 
 }  // namespace crisp
