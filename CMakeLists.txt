@@ -74,6 +74,7 @@ set(CRISP_CORE_SOURCES
     src/UploadLog.cpp
     src/PinStore.cpp
     src/UpdateCheck.cpp
+    src/HttpGet.cpp
     src/GuideCompose.cpp
     src/QrCode.cpp
     src/ShortLink.cpp
@@ -107,6 +108,7 @@ set(CRISP_CORE_HEADERS
     src/UploadLog.h
     src/PinStore.h
     src/UpdateCheck.h
+    src/HttpGet.h
     src/GuideCompose.h
     src/QrCode.h
     src/ShortLink.h
