@@ -82,6 +82,10 @@ set(CRISP_CORE_SOURCES
     src/GuideCompose.cpp
     src/GuideDraw.cpp
     src/QrCode.cpp
+    src/QrTables.cpp
+    src/QrEncodeData.cpp
+    src/QrMask.cpp
+    src/HttpGet.cpp
     src/ShortLink.cpp
     src/TextEdit.cpp
 )
@@ -116,6 +120,8 @@ set(CRISP_CORE_HEADERS
     src/HttpGet.h
     src/GuideCompose.h
     src/QrCode.h
+    src/QrInternal.h
+    src/HttpGet.h
     src/ShortLink.h
     src/TextEdit.h
 )
@@ -175,6 +181,7 @@ set(CRISP_APP_SOURCES
     src/AppCapture.cpp
     src/AppActions.cpp
     src/AppUpload.cpp
+    src/QrPin.cpp
     src/AppSettings.cpp
     src/AppText.cpp
     src/AppGuide.cpp
@@ -269,6 +276,7 @@ set(CRISP_APP_HEADERS
     src/Hotkeys.h
     src/Messages.h
     src/UploadText.h
+    src/QrPin.h
     res/resource.h
 )
 
@@ -354,6 +362,7 @@ if(CRISP_TESTS)
         tests/TestUpdateCheck.cpp
         tests/TestGuideCompose.cpp
         tests/TestQrCode.cpp
+        tests/TestQrRoundTrip.cpp
         tests/TestShortLink.cpp
         tests/TestTextEdit.cpp
     )

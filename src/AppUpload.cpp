@@ -11,6 +11,8 @@
 #include "ImageCodec.h"
 #include "Localization.h"
 #include "Messages.h"
+#include "QrPin.h"
+#include "ShortLink.h"
 #include "Toast.h"
 #include "Upload.h"
 #include "UploadLog.h"
@@ -73,9 +75,24 @@ void App::UploadInBackground(const Image& image) {
     // biter ve sonucu bir mesajla geri gönderir.
     const HWND window = m_window;
     const std::wstring key = m_settings.uploadApiKey;
+    // AYAR İŞ PARÇACIĞINDAN ÖNCE OKUNUR: m_settings pencere iş parçacığına
+    // ait ve kullanıcı yükleme sürerken ayar penceresinde onu değiştirebilir.
+    const bool shorten = m_settings.shortenLinks;
 
-    std::thread([window, service, key, png]() {
-        const UploadResult result = UploadPng(service, key, *png, L"crisp.png");
+    std::thread([window, service, key, png, shorten]() {
+        UploadResult result = UploadPng(service, key, *png, L"crisp.png");
+
+        // KISALTMA YÜKLEMENİN ARDINDAN, AYNI İŞ PARÇACIĞINDA: ikinci bir ağ
+        // isteği ve başarısızlığı önemsiz — uzun bağlantı zaten elde, panoya
+        // o düşer. Kısa bağlantı panoya ve deftere gider; uzun olanı defterin
+        // tek alanına sığmıyor, günlüğe yazılır.
+        if (result.ok && shorten) {
+            std::wstring shortLink;
+            if (ShortenLink(result.link, shortLink)) {
+                LogV(L"Kısaltma: %s -> %s", result.link.c_str(), shortLink.c_str());
+                result.link = shortLink;
+            }
+        }
 
         // Defter BURADA yazılır: bir dosyaya satır eklemek arayüze dokunmuyor
         // ve yükleme bitmişse kayıt da bitmiştir.
@@ -114,6 +131,13 @@ void App::FinishBackgroundUpload(LPARAM lParam) {
     // "kopyalandı" diyen bir bildirimle boş bir panoya kalıyordu.
     if (payload->ok && !CopyTextToClipboard(payload->text.c_str(), m_window)) {
         LogV(L"Yükleme bağlantısı panoya kopyalanamadı");
+    }
+
+    // QR KARTI BİLDİRİMDEN BAĞIMSIZ: bildirim üç saniyede söner, kart
+    // kullanıcı kapatana kadar durur; telefonu eline alması o kadar sürer.
+    if (payload->ok && m_settings.showQrAfterUpload &&
+        !PinQrForLink(m_instance, m_window, payload->text)) {
+        LogV(L"QR kartı iğnelenemedi");
     }
 
     if (!m_settings.showNotification) {
